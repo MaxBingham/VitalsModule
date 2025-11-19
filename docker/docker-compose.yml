@@ -1,0 +1,27 @@
+version: "3.9"
+services:
+  gsr-recorder:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile
+    container_name: vital-param-recorder
+    tty: true
+    privileged: true
+    network_mode: host
+    devices:
+      - /dev/snd:/dev/snd
+      - /dev/ttyUSB0:/dev/ttyUSB0  # For GE B450 monitor
+    volumes:
+      - ../ros2_ws:/ros2_ws
+      - ../export:/export
+      - /tmp/.X11-unix:/tmp/.X11-unix:rw
+      - /tmp/.docker.xauth:/tmp/.docker.xauth:rw
+      - ../ros2_ws/src/user_interface:/ros2_ws/src/user_interface
+      - ../ros2_ws/src/vital_recording:/ros2_ws/src/vital_recording
+      - ../VSCaptureCLIv1.006Binary:/opt/vscapture/VSCaptureCLIv1.006Binary
+    environment:
+      - DISPLAY=${DISPLAY}
+      - QT_X11_NO_MITSHM=1
+      - ROS_DOMAIN_ID=${ROS_DOMAIN_ID:-42}
+      - UID=${UID:-1000}
+      - GID=${GID:-1000}
