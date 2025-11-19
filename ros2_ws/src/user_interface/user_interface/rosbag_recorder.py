@@ -15,14 +15,29 @@ class RosbagRecorder(Node):
         self.process = None
             
     def start_recording(self):
-        current_time = time.localtime()
-        time_for_path = time.strftime("%Y-%m-%d_%H_%M_%S", current_time)
-        bag_path = os.path.join(
-            "/export", "rosbag", time_for_path
-        )
-        command = ["ros2", "bag", "record", "-a", "-o", bag_path]
-        self.process = subprocess.Popen(command)
-        self.get_logger().info("Started rosbag recording.")
+            current_time = time.localtime()
+            time_for_path = time.strftime("%Y-%m-%d_%H_%M_%S", current_time)
+            
+            # === CHANGED SECTION START ===
+            # 1. Define the directory where bags live
+            base_dir = "/export/rosbag"
+
+            # 2. Create it if it doesn't exist
+            if not os.path.exists(base_dir):
+                try:
+                    os.makedirs(base_dir, exist_ok=True)
+                    self.get_logger().info(f"Created directory: {base_dir}")
+                except OSError as e:
+                    self.get_logger().error(f"Failed to create directory {base_dir}: {e}")
+                    return
+            
+            # 3. Define the full path for this specific recording
+            bag_path = os.path.join(base_dir, time_for_path)
+            # === CHANGED SECTION END ===
+
+            command = ["ros2", "bag", "record", "-a", "-o", bag_path]
+            self.process = subprocess.Popen(command)
+            self.get_logger().info(f"Started rosbag recording at {bag_path}")
 
     def stop_recording(self):
         if self.process:

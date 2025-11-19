@@ -1,34 +1,32 @@
 # Docker for ros2 bag recording with vital parameter monitor
 
-## 1. About Docker 
-This project provides a fully containerized ROS 2 (Humble) environment tailored for vital parameter data acquisition. The Docker setup is designed to simplify deployment across systems.
+## 1. Requirements
+- Docker
+- Docker Compose
 
-The system is built using a Dockerfile based on the ros:humble-perception image and is managed via docker-compose. Two main Compose configurations are provided:
-   - **docker-compose.yml**: Base setup with device access and privilege escalation.
+## 2. Get started
 
-   - **docker-compose-gui.yml**: Extends the base configuration for GUI applications, enabling visualization through X11 display sharing.
+1. **Clone the repository:**
+```bash
+git clone https://gitlab.lrz.de/centre-of-clinical-robotics/templates/vital-parameter-recording
+cd vital-paramter-recording
+```
 
-## 2. Getting started
+2. **Run the container:**
 Navigate to the `docker` directory and run the start script:
 ```bash
 cd docker
+chmod +x run.sh
 ./run.sh
 ```
 This will build the Docker image and start the container. The GUI for the GSR recorder should appear.
-
-Then you have started the container `vital-param-recording`. Press `Ctrl+C`to stop the container.
 Keep this terminal and open a new one to enter the container:
 ```shell
-docker exec -it docker-recording bash
+docker exec -it vital-param-recorder bash
 ```
 Then you have entered the container environment with root path:`root@USER:/ros2_ws# ` You can now get access to all about ROS2 Humble now.
 
-## 3. Launching The UI
-
-First source relevant files:
-```shell
-source install/setup.bash
-```
+## 3. Launching Sensor Nodes
 
 ### Running the entire System
 Run the home console to get access to the vital recording and rosbag recording.
@@ -53,12 +51,18 @@ ros2 run vital_recording ui_vital
 ```
 ![The GUI window for vital signal from medical monitor.](docs/ui_window_vital.png)
 
+
 ## 4. Export files from the container to outside
+
+### 4.1 Exported data
+You can check all exported data from sensors at `/export`. Check rosbag data for all topics at `/export/rosbag`. Check GSR data with tiemstamps in table at `/export/gar_csv`.
+
+### 4.2 Manuelly export dats
 Run the command outside the container to export files generated inside the container.
 ```shell
 docker cp <container_name>:/path/in/container /path/on/host
 ```
 For example, if you have exported a rosgraph using rqt_graph, you can save it to the specific folder `/ros2_ws/outputs` and export it to the Desktop. 
 ```shell
-docker cp docker-recording:/ros2_ws/outputs/rosgraph.png ~/Desktop/
+docker cp gsr-recorder:/export/rosgraph.png ~/Desktop/
 ```
