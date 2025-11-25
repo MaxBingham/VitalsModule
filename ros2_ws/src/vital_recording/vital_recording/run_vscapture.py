@@ -3,11 +3,7 @@ import os
 import signal
 import time
 
-class VSCaptureManager:
-    """
-    Manages the VSCapture CLI process using the shell wrapper script.
-    Designed for integration into a simple Python GUI or script.
-    """
+class VSCaptureManager: 
 
     def __init__(self):
         self.vscapture_process = None
@@ -43,9 +39,6 @@ class VSCaptureManager:
             # Use Popen to run the script asynchronously
             self.vscapture_process = subprocess.Popen(
                 cmd,
-                # Note: We let the process output go to the terminal standard I/O (no pipes)
-                # If you need to capture output in the GUI, you'd use pipes and threads here,
-                # similar to your ROS node.
                 preexec_fn=os.setsid 
             )
 
@@ -95,15 +88,9 @@ class VSCaptureManager:
 
 
 if __name__ == "__main__":
-    # Example usage for testing outside a GUI/ROS node
+
     manager = VSCaptureManager()
-    
-    # Simulate a button click to start
     manager.start()
-    
-    # Wait 10 seconds (in a real GUI, this would be user interaction)
     print("Capturing data for 10 seconds...")
-    time.sleep(10)
-    
-    # Simulate a button click to stop
+    time.sleep(10)  
     manager.stop()

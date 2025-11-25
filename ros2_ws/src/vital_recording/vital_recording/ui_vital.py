@@ -22,8 +22,8 @@ class VitalParamPlotter(Node):
         super().__init__('vital_param_plotter')
 
         # ROS publisher
-        self.pub_numeric = self.create_publisher(Float32MultiArray, 'vital_params_data', 10)
-        self.pub_waveform = self.create_publisher(Float32MultiArray, 'waveform_data', 10)
+        self.pub_numeric = self.create_publisher(Float32MultiArray, 'vital_numeric_data', 10)
+        self.pub_waveform = self.create_publisher(Float32MultiArray, 'vital_waveform_data', 10)
 
         # VSCapture manager
         self.vscapture_manager = VSCaptureManager()
@@ -37,9 +37,6 @@ class VitalParamPlotter(Node):
         
         self.last_size = 0
         self.monitoring = False
-
-        # Plot data - removed ECG plotting arrays since that was pleth_hf
-        self.start_time = time.time()
         
         # Waveform monitors (replacing individual buffer variables)
         file_paths = {
@@ -79,12 +76,16 @@ class VitalParamPlotter(Node):
         self.root.after(200, self._update_plot)
         
         # Create timer to publish waveform data every 100ms
+        self.start_time = time.time()
+        self.pub_waveform_timer = self.create_timer(0.1, self._numeric_data_cb)
         self.waveform_timer = self.create_timer(0.1, self._wave_data_cb)
 
         self.get_logger().info("Initialized Vital Parameter Plotter")
 
+#--------------------------------------------------------------
+# setup GUI
+# -------------------------------------------------------------    
     def _setup_gui(self):
-        """Create simplified GUI with merged controls"""
         # Main control frame
         control_frame = ttk.LabelFrame(self.root, text="Vital Parameters Control", padding="10")
         control_frame.pack(pady=10, padx=10, fill="x")
@@ -158,77 +159,97 @@ class VitalParamPlotter(Node):
         self.canvas = FigureCanvasTkAgg(self.fig, master=self.root)
         self.canvas.get_tk_widget().pack(expand=True, fill=tk.BOTH)
 
+
+# ---------------- Recording Control (Button callbacks) ----------------
     def _start_recording(self):
-        """Start both VSCapture and data monitoring in one action"""
-        try:
-            # Step 1: Start VSCapture
-            self.lbl_status.config(text="Status: Starting VSCapture...", foreground="orange")
-            self.root.update()
+        # Step 1: Start VSCapture
+        self.lbl_status.config(text="Status: Starting VSCapture...", foreground="orange")
+        self.root.update()
             
-            self.vscapture_manager.start()
+        self.vscapture_manager.start()
             
-            if not self.vscapture_manager.is_running:
-                self.lbl_status.config(text="Status: Failed to start VSCapture", foreground="red")
-                return
+        if not self.vscapture_manager.is_running:
+            self.lbl_status.config(text="Status: Failed to start VSCapture", foreground="red")
+            return
             
-            # Step 2: Clear old data files
-            self._clear_data_files()
+        # Step 2: Clear old data files
+        self._clear_data_files()
+        time.sleep(0.1)
             
-            # Wait a bit to ensure file operations complete
-            time.sleep(0.1)
-            
-            # Step 3: Reset monitoring state
-            self.start_time = time.time()
-            self._clear_plot_data()
-            self.last_size = 0
-            self.monitoring = True
+        # Step 3: Reset monitoring state
+        self.start_time = time.time()
+        self._clear_plot_data()
+        self.last_size = 0
+        self.monitoring = True
 
-            # Step 4: Start monitoring threads
-            threading.Thread(target=self._monitor_json, daemon=True).start()
-            
-            # Start waveform monitoring threads using the new monitor system
-            for monitor in self.waveform_monitors:
-                threading.Thread(
-                    target=monitor.monitor_file, 
-                    args=(lambda: self.monitoring,),  # Pass monitoring flag function
-                    daemon=True
-                ).start()
+        # Step 4: Start monitoring threads
+        threading.Thread(target=self._monitor_json, daemon=True).start() # Start numeric monitoring thread
+        for monitor in self.waveform_monitors: # Start waveform monitoring threads
+            threading.Thread(
+                target=monitor.monitor_file, 
+                args=(lambda: self.monitoring,),  # Pass monitoring flag function
+                daemon=True
+            ).start()
 
-            # Step 5: Update UI - FIXED: Make sure buttons are properly updated
-            self.start_btn.config(state=tk.DISABLED)
-            self.stop_btn.config(state=tk.NORMAL)
-            self.lbl_status.config(text="Status: Recording & Monitoring Active", foreground="green")
-            
-            self.get_logger().info("Started VSCapture and monitoring successfully")
-            
-        except Exception as e:
-            self.lbl_status.config(text=f"Status: Error - {str(e)}", foreground="red")
-            self.get_logger().error(f"Error starting recording: {e}")
-            # Reset button states on error
-            self.start_btn.config(state=tk.NORMAL)
-            self.stop_btn.config(state=tk.DISABLED)
+        # Step 5: Update UI
+        self.start_btn.config(state=tk.DISABLED)
+        self.stop_btn.config(state=tk.NORMAL)
+        self.lbl_status.config(text="Status: Recording & Monitoring Active", foreground="green")
+
+        self.get_logger().info("Started VSCapture and monitoring successfully")
+
 
     def _stop_recording(self):
         """Stop both data monitoring and VSCapture in one action"""
-        try:
-            # Step 1: Stop monitoring
-            self.monitoring = False
+        # Step 1: Stop monitoring
+        self.monitoring = False
             
-            # Step 2: Stop VSCapture
-            if self.vscapture_manager.is_running:
-                self.vscapture_manager.stop()
+        # Step 2: Stop VSCapture
+        if self.vscapture_manager.is_running:
+            self.vscapture_manager.stop()
             
-            # Step 3: Update UI
-            self.start_btn.config(state=tk.NORMAL)
-            self.stop_btn.config(state=tk.DISABLED)
-            self.lbl_status.config(text="Status: Recording Stopped", foreground="blue")
+        # Step 3: Update UI
+        self.start_btn.config(state=tk.NORMAL)
+        self.stop_btn.config(state=tk.DISABLED)
+        self.lbl_status.config(text="Status: Recording Stopped", foreground="blue")
             
-            self.get_logger().info("Stopped VSCapture and monitoring successfully")
-            
-        except Exception as e:
-            self.lbl_status.config(text=f"Status: Error stopping - {str(e)}", foreground="red")
-            self.get_logger().error(f"Error stopping recording: {e}")
+        self.get_logger().info("Stopped VSCapture and monitoring successfully")
 
+
+    def _on_exit(self):
+        """Clean shutdown"""
+        self.get_logger().info("Shutting down...")
+        
+        # Stop monitoring first
+        self.monitoring = False
+        
+        # Stop the waveform timer
+        if hasattr(self, 'waveform_timer'):
+            self.waveform_timer.cancel()
+        
+        # Stop VSCapture if running
+        if hasattr(self, 'vscapture_manager') and self.vscapture_manager.is_running:
+            try:
+                self.vscapture_manager.stop()
+            except Exception as e:
+                self.get_logger().error(f"Error stopping VSCapture: {e}")
+        
+        # Shutdown ROS
+        try:
+            self.destroy_node()
+            rclpy.shutdown()
+        except Exception as e:
+            print(f"ROS shutdown warning: {e}")
+        
+        # Close GUI
+        try:
+            self.root.quit()
+            self.root.destroy()
+        except:
+            pass
+
+
+# ------------------ Clear Data helpers ----------------
     def _clear_data(self):
         """Clear all plotted data"""
         self._clear_plot_data()
@@ -270,9 +291,11 @@ class VitalParamPlotter(Node):
                 except Exception as e:
                     self.get_logger().error(f"Error clearing file {path}: {e}")
 
-    # ---------------------------------------------------------------------
-    # Numeric data monitor
-    # ---------------------------------------------------------------------
+
+
+# ---------------------------------------------------------------------
+# Numeric data monitor
+# ---------------------------------------------------------------------
     def _monitor_json(self):
         """Continuously watch the JSON file for new lines"""
         while self.monitoring:
@@ -335,11 +358,8 @@ class VitalParamPlotter(Node):
 
         if ecg is not None:
             self.latest_ecg = ecg
-
         if spo2 is not None:
             self.latest_spo2 = spo2
-
-        # Update NIBP values
         if nibp_sys is not None:
             self.latest_nibp_sys = nibp_sys
         if nibp_dia is not None:
@@ -347,14 +367,25 @@ class VitalParamPlotter(Node):
         if nibp_mean is not None:
             self.latest_nibp_mean = nibp_mean
 
-        if ecg is not None or spo2 is not None:
-            msg = Float32MultiArray()
-            msg.data = [t_now, ecg or -1.0, spo2 or -1.0]
-            self.pub_numeric.publish(msg)
 
-    # ---------------------------------------------------------------------
-    # Waveform data update method
-    # ---------------------------------------------------------------------
+    def _numeric_data_cb(self):
+        """Publish latest numeric data with timestamps"""
+
+        t_now = time.time()
+        msg = Float32MultiArray()
+        msg.data = [t_now, 
+                    self.latest_ecg or -1.0, 
+                    self.latest_spo2 or -1.0, 
+                    self.latest_nibp_sys or -1.0, 
+                    self.latest_nibp_dia or -1.0, 
+                    self.latest_nibp_mean or -1.0]
+        self.pub_numeric.publish(msg)
+
+
+
+# ---------------------------------------------------------------------
+# Waveform data update method
+# ---------------------------------------------------------------------
     def _update_latest_waveform_data(self):
         """Update latest waveform data from monitors"""
         monitor_names = ['pleth', 'ecg1', 'resp', 'invp1']
@@ -364,9 +395,35 @@ class VitalParamPlotter(Node):
                 self.latest_waveform_data[param_name]['value'] = monitor.latest_value
                 self.latest_waveform_data[param_name]['timestamp'] = monitor.latest_timestamp
 
-    # ---------------- Plot Update ----------------
+    def _wave_data_cb(self):
+        """Publish latest waveform data with timestamps"""
+        try:
+            # Update latest waveform data from monitors
+            self._update_latest_waveform_data()
+            
+            # Create data array: [timestamp, pleth, ecg1, resp, invp1]
+            current_time = time.time()
+            data = [current_time]  # Start with current timestamp
+            
+            # Add latest values for each waveform (use -1 if no data available)
+            for param in ['pleth', 'ecg1', 'resp', 'invp1']:
+                if (self.latest_waveform_data[param]['value'] is not None and 
+                    self.latest_waveform_data[param]['timestamp'] is not None):
+                    data.append(self.latest_waveform_data[param]['value'])
+                else:
+                    data.append(-1.0)  # No data available
+            
+            # Publish the waveform data
+            msg = Float32MultiArray()
+            msg.data = data
+            self.pub_waveform.publish(msg)
+            
+        except Exception as e:
+            self.get_logger().error(f"Waveform callback error: {e}")
+
+
+# ---------------- Plot Update ----------------
     def _update_plot(self):
-        """Update all plots"""
         try:
             # Update latest waveform data from monitors
             self._update_latest_waveform_data()
@@ -421,64 +478,7 @@ class VitalParamPlotter(Node):
             self.root.after(200, self._update_plot)
 
 
-    def _wave_data_cb(self):
-        """Publish latest waveform data with timestamps"""
-        try:
-            # Update latest waveform data from monitors
-            self._update_latest_waveform_data()
-            
-            # Create data array: [timestamp, pleth, ecg1, resp, invp1]
-            current_time = time.time()
-            data = [current_time]  # Start with current timestamp
-            
-            # Add latest values for each waveform (use -1 if no data available)
-            for param in ['pleth', 'ecg1', 'resp', 'invp1']:
-                if (self.latest_waveform_data[param]['value'] is not None and 
-                    self.latest_waveform_data[param]['timestamp'] is not None):
-                    data.append(self.latest_waveform_data[param]['value'])
-                else:
-                    data.append(-1.0)  # No data available
-            
-            # Publish the waveform data
-            msg = Float32MultiArray()
-            msg.data = data
-            self.pub_waveform.publish(msg)
-            
-        except Exception as e:
-            self.get_logger().error(f"Waveform callback error: {e}")
 
-    # ---------------- Exit ----------------
-    def _on_exit(self):
-        """Clean shutdown"""
-        self.get_logger().info("Shutting down...")
-        
-        # Stop monitoring first
-        self.monitoring = False
-        
-        # Stop the waveform timer
-        if hasattr(self, 'waveform_timer'):
-            self.waveform_timer.cancel()
-        
-        # Stop VSCapture if running
-        if hasattr(self, 'vscapture_manager') and self.vscapture_manager.is_running:
-            try:
-                self.vscapture_manager.stop()
-            except Exception as e:
-                self.get_logger().error(f"Error stopping VSCapture: {e}")
-        
-        # Shutdown ROS
-        try:
-            self.destroy_node()
-            rclpy.shutdown()
-        except Exception as e:
-            print(f"ROS shutdown warning: {e}")
-        
-        # Close GUI
-        try:
-            self.root.quit()
-            self.root.destroy()
-        except:
-            pass
 
 
 def main(args=None):

@@ -28,12 +28,15 @@ Then you have entered the container environment with root path:`root@USER:/ros2_
 
 ## 3. Launching Sensor Nodes
 
+You can get an overview of the nodes and topics in the workspace `ros2_ws` from this rosgraph:
+![Rosgraph of the whole system](docs/rosgraph_vital.png)
+
 ### Running the entire System
 Run the home console to get access to the vital recording and rosbag recording.
 ```shell
 ros2 run user_interface ui_home
 ```
-![The GUI home window](docs/ui_window_new.png)
+![The GUI home window](docs/ui_window_all.png)
 
 ### Recording vital signals from Monitor GE Carescape b450
 VSCapture is added in this respository. If you just want to run VSCapture with your own configuration arguments, run:
@@ -55,7 +58,7 @@ ros2 run vital_recording ui_vital
 ## 4. Export files from the container to outside
 
 ### 4.1 Exported data
-You can check all exported data from sensors at `/export`. Check rosbag data for all topics at `/export/rosbag`. Check GSR data with tiemstamps in table at `/export/gar_csv`.
+You can check all exported data from sensors at `/export`. Check rosbag data for all topics at `/export/rosbag`.
 
 ### 4.2 Manuelly export dats
 Run the command outside the container to export files generated inside the container.
@@ -64,5 +67,5 @@ docker cp <container_name>:/path/in/container /path/on/host
 ```
 For example, if you have exported a rosgraph using rqt_graph, you can save it to the specific folder `/ros2_ws/outputs` and export it to the Desktop. 
 ```shell
-docker cp gsr-recorder:/export/rosgraph.png ~/Desktop/
+docker cp vital-param-recorder:/export/rosgraph.png ~/Desktop/
 ```
