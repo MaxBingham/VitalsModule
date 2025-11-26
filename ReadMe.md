@@ -1,6 +1,9 @@
 # Docker for ros2 bag recording with vital parameter monitor
 
 ## 1. Requirements
+- GE medical Monitor Bx50 or Datex S/5 or Dash (tested with GE b450)
+- 2 ATEN UC232A-USB adapters connected with Null Modem F/F cable. 
+- VitalSignsCapture (appended in this repository)
 - Docker
 - Docker Compose
 
@@ -39,7 +42,7 @@ ros2 run user_interface ui_home
 ![The GUI home window](docs/ui_window_all.png)
 
 ### Recording vital signals from Monitor GE Carescape b450
-VSCapture is added in this respository. If you just want to run VSCapture with your own configuration arguments, run:
+This package uses VSCapture to record data from medical monitor. To connect to the medical monitor, read the hardware connection guide by [vital recorder](https://vitaldb.net/docs/). To get an overview of the available sensors for vital signals on GE Bx50. Read this [catalog](https://www.gehealthcare.de/-/media/global/dach/files/lcs/mini-catalogues-lcs_b450_b650_b850_de_jb63920xeb.pdf?rev=-1). If you just want to run VSCapture with your own configuration arguments, run:
 ```shell
 run_vscapture.sh \
   --devices 1 \
@@ -48,7 +51,7 @@ run_vscapture.sh \
   --device1arg "-port /dev/ttyUSB0 -interval 1 -export 4 -waveset 2"
 ```
 
-But it is more recommended to run VSCapture in GUI. Also you can see the plotting of the vital parameters in realtime:
+When VSCapture running, it will save all vital signal in .json and .csv files. There are 2 kinds of vital signal. If a vital parameter is shown as label in monitor, it will be recognized as numeric data and all numeric data are saved in one file. If a vital parameter can be plotted as live diagram in monitor, it is recognized as waveform and each waveform data is saved in its own .csv file. Then the ros2 node `/vital_param_plotter`will read latest data from these files and plot them in GUI. So it is more recommended to run VSCapture in GUI. Also you can see the plotting of the vital parameters in realtime:
 ```shell
 ros2 run vital_recording ui_vital
 ```

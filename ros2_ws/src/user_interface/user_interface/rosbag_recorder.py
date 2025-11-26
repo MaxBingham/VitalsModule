@@ -13,6 +13,17 @@ class RosbagRecorder(Node):
     def __init__(self):
         super().__init__('rosbag_recorder')
         self.process = None
+        self.topic_list = [
+            '/camera/camera/color/image_raw',
+            '/camera/camera/depth/image_rect_raw',
+            "/camera/camera/color/camera_info",
+            "/tf",
+            "/tf_static",
+            "/audio",
+            "/gsr_data",
+            "/vital_waveform_data",
+            "/vital_numeric_data",
+        ]
             
     def start_recording(self):
             current_time = time.localtime()
@@ -35,8 +46,11 @@ class RosbagRecorder(Node):
             bag_path = os.path.join(base_dir, time_for_path)
             # === CHANGED SECTION END ===
 
-            command = ["ros2", "bag", "record", "-a", "-o", bag_path]
+            command = ["ros2", "bag", "record", "-o", bag_path]
+            for topic in self.topic_list:
+                command.append(topic)
             self.process = subprocess.Popen(command)
+
             self.get_logger().info(f"Started rosbag recording at {bag_path}")
 
     def stop_recording(self):
