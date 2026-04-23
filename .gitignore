@@ -1,0 +1,12 @@
+# Generated output data
+export/*
+!export/.gitignore
+
+# VSCapture generated artifacts
+VSCaptureCLIv1.006Binary/*.csv
+VSCaptureCLIv1.006Binary/*.raw
+VSCaptureCLIv1.006Binary/*.pdb
+VSCaptureCLIv1.006Binary/DataExportVSC.json
+
+
+#already tracked --> probably manual removal necessary
