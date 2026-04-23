@@ -58,7 +58,75 @@ ros2 run vital_recording ui_vital
 ![The GUI window for vital signal from medical monitor.](docs/ui_window_vital.png)
 
 
-## 4. Export files from the container to outside
+## 4. Foxglove Bridge — Live Visualisation ⚠️ *[NEW — TO BE CHECKED]*
+
+The Foxglove Bridge streams all ROS 2 topics to [Foxglove Studio](https://foxglove.dev) over WebSocket, allowing live visualisation without entering the container.
+
+### 4.1 Starting the bridge
+
+```bash
+sudo docker compose -f docker/docker-compose.yml up -d foxglove-bridge
+```
+
+### 4.2 Connecting Foxglove Studio
+
+1. Open Foxglove Studio
+2. Click **Open connection**
+3. Select **Foxglove WebSocket**
+4. Enter URL: `ws://localhost:8765`
+
+> **Note:** Topics only appear after `ui_vital` is running inside the container **and** the **Start Recording** button has been pressed in the GUI.
+
+### 4.3 Available topics
+
+| Topic | Type | Fields |
+|---|---|---|
+| `/vital_numeric_data` | `Float32MultiArray` | `[timestamp, ECG_HR, SpO2, NIBP_sys, NIBP_dia, NIBP_mean]` — value is `-1` when not measured |
+| `/vital_waveform_data` | `Float32MultiArray` | `[timestamp, pleth, ecg1, resp, invp1]` |
+
+### 4.4 Viewing data in Foxglove Studio
+
+- **Raw values:** Add a **Raw Messages** panel → set topic to `/vital_numeric_data`
+- **Plot HR or SpO2:** Add a **Plot** panel → **Add series** → enter path manually, e.g.:
+  - `/vital_numeric_data.data[1]` — ECG HR
+  - `/vital_numeric_data.data[2]` — SpO2
+- **Waveforms:** Add a **Plot** panel → `/vital_waveform_data.data[1]` for pleth, `[2]` for ECG, etc.
+
+### 4.5 Troubleshooting ⚠️ *[NEW — TO BE CHECKED]*
+
+**Check bridge is healthy:**
+```bash
+sudo docker inspect foxglove_bridge --format='{{.State.Health.Status}}'
+```
+
+**Check topics are publishing:**
+```bash
+sudo docker exec vital-param-recorder bash -c "source /opt/ros/humble/setup.bash && ROS_DOMAIN_ID=42 ros2 topic list"
+```
+
+**Watch bridge logs live:**
+```bash
+sudo docker logs foxglove_bridge -f
+```
+
+**No data in Foxglove despite topics being visible:**
+Both containers must have `ipc: host` set in `docker-compose.yml`. Without it, FastDDS shared memory is blocked between containers and no messages are delivered even though topics are discoverable.
+
+---
+
+## 5. Starting the vital recorder ⚠️ *[NEW — TO BE CHECKED]*
+
+Always start `ui_vital` with `ROS_DOMAIN_ID=42` set explicitly. Without it the node runs on domain 0 and is invisible to the Foxglove bridge (domain 42):
+
+```bash
+sudo docker exec -it vital-param-recorder bash -c "export ROS_DOMAIN_ID=42 && ros2 run vital_recording ui_vital"
+```
+
+> **Note:** This will be fixed permanently after rebuilding the image with `docker compose up --build`.
+
+---
+
+## 6. Export files from the container to outside
 
 ### 4.1 Exported data
 You can check all exported data from sensors at `/export`. Check rosbag data for all topics at `/export/rosbag`.
