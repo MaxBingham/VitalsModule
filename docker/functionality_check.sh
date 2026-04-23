@@ -1,5 +1,9 @@
 #!/usr/bin/env bash
 
+# Source ROS — healthcheck runs outside the container entrypoint, so PATH won't have ros2
+source /opt/ros/humble/setup.bash
+source /ros2_ws/install/setup.bash 2>/dev/null || true
+
 set -euo pipefail
 
 HOST="${FOXGLOVE_HOST:-127.0.0.1}"

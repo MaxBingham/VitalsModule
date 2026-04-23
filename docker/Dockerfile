@@ -106,7 +106,6 @@ RUN source /opt/ros/${ROS_DISTRO}/setup.bash && \
 # === Setup environment (as non-root user) ===
 RUN echo "source /opt/ros/${ROS_DISTRO}/setup.bash" >> ~/.bashrc && \
     echo "source ${WS_DIR}/install/setup.bash" >> ~/.bashrc && \
-    echo "export ROS_DOMAIN_ID=${ROS_DOMAIN_ID}" >> ~/.bashrc && \
     echo "export DISPLAY=:0" >> ~/.bashrc && \
     echo "export XDG_RUNTIME_DIR=/tmp/runtime-${UID}" >> ~/.bashrc
 
