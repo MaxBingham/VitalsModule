@@ -15,6 +15,7 @@ RUN apt-get update && apt-get install -y \
     cmake \
     git-all \
     nano \
+    netcat-openbsd \
     python3-tk \
     python3-pip \
     software-properties-common \
@@ -68,6 +69,10 @@ RUN chmod +x /usr/local/bin/run_vscapture.sh
 COPY docker/container-startup.sh /usr/local/bin/
 RUN chmod +x /usr/local/bin/container-startup.sh
 
+# === Add functionality check script for container healthcheck ===
+COPY docker/functionality_check.sh /usr/local/bin/
+RUN chmod +x /usr/local/bin/functionality_check.sh
+
 # === Update VSCapture environment variable ===
 ENV VSCAPTURE_PATH="/opt/vscapture/VSCaptureCLIv1.006Binary"
 
@@ -81,6 +86,12 @@ RUN apt update && apt install -y \
     apt-get clean && \
     rm -rf /var/lib/apt/lists/* && \
     rm -rf /var/cache/apt/archives/*
+
+# === Install Foxglove Bridge === #To Do: Split into two images
+RUN apt-get update && apt-get install -y \
+    ros-humble-foxglove-bridge \
+    && apt-get clean \
+    && rm -rf /var/lib/apt/lists/*
 
 # === Setup ROS workspace (as non-root user) ===
 USER ${UNAME}

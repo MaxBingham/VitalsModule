@@ -32,3 +32,21 @@ services:
       - GID=${GID:-1000}
     group_add:
       - dialout  # Add dialout group for serial port access
+    restart: unless-stopped
+
+  foxglove-bridge: 
+    build:
+      context: .. 
+      dockerfile: docker/Dockerfile
+    container_name: foxglove_bridge
+    network_mode: host #temporary - will be changed to bridged
+    command: ros2 launch foxglove_bridge foxglove_bridge_launch.xml
+    environment:
+      - ROS_DOMAIN_ID=${ROS_DOMAIN_ID:-42}
+    healthcheck:
+      test: ["CMD", "/usr/local/bin/functionality_check.sh"]
+      interval: 20s
+      timeout: 5s
+      retries: 3
+      start_period: 90s
+    restart: unless-stopped
