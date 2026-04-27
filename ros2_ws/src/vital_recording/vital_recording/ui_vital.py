@@ -75,10 +75,10 @@ class VitalParamPlotter(Node):
         threading.Thread(target=rclpy.spin, args=(self,), daemon=True).start()
         self.root.after(200, self._update_plot)
         
-        # Create timer to publish waveform data every 100ms
+        # Create timer to publish waveform data every 100ms 
         self.start_time = time.time()
         self.pub_waveform_timer = self.create_timer(0.1, self._numeric_data_cb)
-        self.waveform_timer = self.create_timer(0.1, self._wave_data_cb)
+        self.waveform_timer = self.create_timer(0.01, self._wave_data_cb)
 
         self.get_logger().info("Initialized Vital Parameter Plotter")
 
