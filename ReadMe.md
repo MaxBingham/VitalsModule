@@ -65,7 +65,8 @@ The Foxglove Bridge streams all ROS 2 topics to [Foxglove Studio](https://foxglo
 ### 4.1 Starting the bridge
 
 ```bash
-sudo docker compose -f docker/docker-compose.yml up -d foxglove-bridge
+cd ~/Documents/vitals-module/docker
+sudo docker compose up -d foxglove-bridge
 ```
 
 ### 4.2 Connecting Foxglove Studio

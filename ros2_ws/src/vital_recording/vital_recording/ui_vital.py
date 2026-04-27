@@ -371,9 +371,9 @@ class VitalParamPlotter(Node):
     def _numeric_data_cb(self):
         """Publish latest numeric data with timestamps"""
 
-        t_now = time.time()
+        #t_now = time.time()
         msg = Float32MultiArray()
-        msg.data = [t_now, 
+        msg.data = [#t_now, 
                     self.latest_ecg or -1.0, 
                     self.latest_spo2 or -1.0, 
                     self.latest_nibp_sys or -1.0, 
