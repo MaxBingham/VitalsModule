@@ -401,9 +401,9 @@ class VitalParamPlotter(Node):
             # Update latest waveform data from monitors
             self._update_latest_waveform_data()
             
-            # Create data array: [timestamp, pleth, ecg1, resp, invp1]
-            current_time = time.time()
-            data = [current_time]  # Start with current timestamp
+            # Create data array(without timestamp now): [timestamp, pleth, ecg1, resp, invp1]
+            #current_time = time.time()
+            data = []  # Start with current timestamp
             
             # Add latest values for each waveform (use -1 if no data available)
             for param in ['pleth', 'ecg1', 'resp', 'invp1']:
