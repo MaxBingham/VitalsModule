@@ -240,9 +240,11 @@ class VitalParamPlotter(Node):
         # Stop monitoring first
         self.monitoring = False
         
-        # Stop the waveform timer
+        # Stop timers
         if hasattr(self, 'waveform_timer'):
             self.waveform_timer.cancel()
+        if hasattr(self, 'numeric_timer'):
+            self.numeric_timer.cancel()
         
         # Stop VSCapture if running
         if hasattr(self, 'vscapture_manager') and self.vscapture_manager.is_running:
