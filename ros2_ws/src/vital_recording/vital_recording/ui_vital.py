@@ -94,7 +94,14 @@ class VitalParamPlotter(Node):
         # Create timers to publish numeric and waveform data
         self.start_time = time.time()
         self.numeric_timer = self.create_timer(0.1, self._numeric_data_cb)
-        self.waveform_timer = self.create_timer(0.004, self._wave_data_cb)
+        # --- PER-MONITOR TIMERS (replaces single waveform_timer) ---
+        self.waveform_timers = [
+            self.create_timer(1.0 / 100.0,  lambda m=self.pleth_monitor,  p=self.pub_pleth:  self._publish_waveform(m, p)),
+            self.create_timer(1.0 / 250.0,  lambda m=self.ecg1_monitor,   p=self.pub_ecg1:   self._publish_waveform(m, p)),
+            self.create_timer(1.0 / 25.0,   lambda m=self.resp_monitor,   p=self.pub_resp:   self._publish_waveform(m, p)),
+            self.create_timer(1.0 / 125.0,  lambda m=self.invp1_monitor,  p=self.pub_invp1:  self._publish_waveform(m, p)),
+        ]
+        # --- END PER-MONITOR TIMERS ---
 
         self.get_logger().info("Initialized Vital Parameter Plotter")
 
@@ -240,8 +247,10 @@ class VitalParamPlotter(Node):
         self.monitoring = False
         
         # Stop timers
-        if hasattr(self, 'waveform_timer'):
-            self.waveform_timer.cancel()
+        # --- PER-MONITOR TIMERS CANCEL ---
+        for timer in getattr(self, 'waveform_timers', []):
+            timer.cancel()
+        # --- END PER-MONITOR TIMERS CANCEL ---
         if hasattr(self, 'numeric_timer'):
             self.numeric_timer.cancel()
         
@@ -418,20 +427,15 @@ class VitalParamPlotter(Node):
                 self.latest_waveform_data[param_name]['value'] = monitor.latest_value
                 self.latest_waveform_data[param_name]['timestamp'] = monitor.latest_timestamp
 
-    def _wave_data_cb(self):
+    # --- PER-MONITOR PUBLISH (replaces _wave_data_cb) ---
+    def _publish_waveform(self, monitor, publisher):
         try:
-            monitor_publishers = [
-                (self.pleth_monitor, self.pub_pleth),
-                (self.ecg1_monitor, self.pub_ecg1),
-                (self.resp_monitor, self.pub_resp),
-                (self.invp1_monitor, self.pub_invp1),
-            ]
-            for monitor, publisher in monitor_publishers:
-                msg = Float32()
-                msg.data = monitor.publish_queue.popleft() if monitor.publish_queue else -1.0
-                publisher.publish(msg)
+            msg = Float32()
+            msg.data = monitor.publish_queue.popleft() if monitor.publish_queue else -1.0
+            publisher.publish(msg)
         except Exception as e:
-            self.get_logger().error(f"Waveform callback error: {e}")
+            self.get_logger().error(f"Waveform publish error: {e}")
+    # --- END PER-MONITOR PUBLISH ---
 
 
 # ---------------- Plot Update ----------------
