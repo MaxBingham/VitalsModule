@@ -427,11 +427,9 @@ class VitalParamPlotter(Node):
                 (self.invp1_monitor, self.pub_invp1),
             ]
             for monitor, publisher in monitor_publishers:
-                if monitor.publish_queue:
-                    value = monitor.publish_queue.popleft()
-                    msg = Float32()
-                    msg.data = value
-                    publisher.publish(msg)
+                msg = Float32()
+                msg.data = monitor.publish_queue.popleft() if monitor.publish_queue else -1.0
+                publisher.publish(msg)
         except Exception as e:
             self.get_logger().error(f"Waveform callback error: {e}")
 
