@@ -12,7 +12,7 @@ from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 
 import rclpy
 from rclpy.node import Node
-from std_msgs.msg import Float32MultiArray
+from std_msgs.msg import Float32
 
 from .run_vscapture import VSCaptureManager
 from .waveform_monitors import create_waveform_monitors
@@ -22,8 +22,18 @@ class VitalParamPlotter(Node):
         super().__init__('vital_param_plotter')
 
         # ROS publisher
-        self.pub_numeric = self.create_publisher(Float32MultiArray, 'vital_numeric_data', 10)
-        self.pub_waveform = self.create_publisher(Float32MultiArray, 'vital_waveform_data', 10)
+        #self.pub_numeric = self.create_publisher(Float32MultiArray, 'vital_numeric_data', 10)
+        self.pub_ecg = self.create_publisher(Float32, 'numeric_ecg_hr', 10)
+        self.pub_spo2 = self.create_publisher(Float32, 'numeric_spo2', 10)
+        self.pub_nibp_sys = self.create_publisher(Float32, 'numeric_nibp_sys', 10)
+        self.pub_nibp_dia = self.create_publisher(Float32, 'numeric_nibp_dia', 10)
+        self.pub_nibp_mean = self.create_publisher(Float32, 'numeric_nibp_mean', 10)
+
+        #self.pub_waveform = self.create_publisher(Float32MultiArray, 'vital_waveform_data', 10)
+        self.pub_pleth = self.create_publisher(Float32, 'waveform_pleth', 10)
+        self.pub_ecg1 = self.create_publisher(Float32, 'waveform_ecg1', 10)
+        self.pub_resp = self.create_publisher(Float32, 'waveform_resp', 10)
+        self.pub_invp1 = self.create_publisher(Float32, 'waveform_invp1', 10)
 
         # VSCapture manager
         self.vscapture_manager = VSCaptureManager()
@@ -53,7 +63,14 @@ class VitalParamPlotter(Node):
         self.resp_monitor = self.waveform_monitors[2]
         self.invp1_monitor = self.waveform_monitors[3]
 
-        self.latest_ecg, self.latest_spo2, self.latest_nibp_sys, self.latest_nibp_dia, self.latest_nibp_mean = None, None, None, None, None
+        # Latest numeric data indexed by parameter name
+        self.latest_numeric_data = {
+            'ecg': {'value': None},
+            'spo2': {'value': None},
+            'nibp_sys': {'value': None},
+            'nibp_dia': {'value': None},
+            'nibp_mean': {'value': None}
+        }
 
         # Latest waveform data arrays indexed by parameter name
         self.latest_waveform_data = {
@@ -75,9 +92,9 @@ class VitalParamPlotter(Node):
         threading.Thread(target=rclpy.spin, args=(self,), daemon=True).start()
         self.root.after(200, self._update_plot)
         
-        # Create timer to publish waveform data every 100ms 
+        # Create timers to publish numeric and waveform data
         self.start_time = time.time()
-        self.pub_waveform_timer = self.create_timer(0.1, self._numeric_data_cb)
+        self.numeric_timer = self.create_timer(0.1, self._numeric_data_cb)
         self.waveform_timer = self.create_timer(0.01, self._wave_data_cb)
 
         self.get_logger().info("Initialized Vital Parameter Plotter")
@@ -268,7 +285,8 @@ class VitalParamPlotter(Node):
         for monitor in self.waveform_monitors:
             monitor.reset()
         
-        self.latest_ecg, self.latest_spo2, self.latest_nibp_sys, self.latest_nibp_dia, self.latest_nibp_mean = None, None, None, None, None
+        for param in self.latest_numeric_data:
+            self.latest_numeric_data[param]['value'] = None
         
         # Reset latest waveform data
         for param in ['pleth', 'ecg1', 'resp', 'invp1']:
@@ -357,32 +375,36 @@ class VitalParamPlotter(Node):
                     pass
 
         if ecg is not None:
-            self.latest_ecg = ecg
+            self.latest_numeric_data['ecg']['value'] = ecg
         if spo2 is not None:
-            self.latest_spo2 = spo2
+            self.latest_numeric_data['spo2']['value'] = spo2
         if nibp_sys is not None:
-            self.latest_nibp_sys = nibp_sys
+            self.latest_numeric_data['nibp_sys']['value'] = nibp_sys
         if nibp_dia is not None:
-            self.latest_nibp_dia = nibp_dia
+            self.latest_numeric_data['nibp_dia']['value'] = nibp_dia
         if nibp_mean is not None:
-            self.latest_nibp_mean = nibp_mean
+            self.latest_numeric_data['nibp_mean']['value'] = nibp_mean
 
 
     def _numeric_data_cb(self):
-        """Publish latest numeric data with timestamps"""
-
-        #t_now = time.time()
-        msg = Float32MultiArray()
-        msg.data = [#t_now, 
-                    self.latest_ecg or -1.0, 
-                    self.latest_spo2 or -1.0, 
-                    self.latest_nibp_sys or -1.0, 
-                    self.latest_nibp_dia or -1.0, 
-                    self.latest_nibp_mean or -1.0]
-        self.pub_numeric.publish(msg)
+        """Publish latest numeric data without timestamps"""
 
 
+        numeric_publishers = {
+            'ecg': self.pub_ecg,
+            'spo2': self.pub_spo2,
+            'nibp_sys': self.pub_nibp_sys,
+            'nibp_dia': self.pub_nibp_dia,
+            'nibp_mean': self.pub_nibp_mean,
+        }
 
+        for key, publisher in numeric_publishers.items():
+            msg = Float32()
+            value = self.latest_numeric_data[key]['value']
+            msg.data = value if value is not None else -1.0
+            publisher.publish(msg)
+
+        # Each message carries one value - no array indexing to manage.
 # ---------------------------------------------------------------------
 # Waveform data update method
 # ---------------------------------------------------------------------
@@ -401,23 +423,24 @@ class VitalParamPlotter(Node):
             # Update latest waveform data from monitors
             self._update_latest_waveform_data()
             
-            # Create data array(without timestamp now): [timestamp, pleth, ecg1, resp, invp1]
-            #current_time = time.time()
-            data = []  # Start with current timestamp
+            # Publish individual waveform streams as Float32 messages
+            # Each contains one sample point
+            waveforms = {
+                'pleth': (self.pub_pleth, 'pleth'),
+                'ecg1': (self.pub_ecg1, 'ecg1'),
+                'resp': (self.pub_resp, 'resp'),
+                'invp1': (self.pub_invp1, 'invp1')
+            }
             
-            # Add latest values for each waveform (use -1 if no data available)
-            for param in ['pleth', 'ecg1', 'resp', 'invp1']:
-                if (self.latest_waveform_data[param]['value'] is not None and 
-                    self.latest_waveform_data[param]['timestamp'] is not None):
-                    data.append(self.latest_waveform_data[param]['value'])
-                else:
-                    data.append(-1.0)  # No data available
-            
-            # Publish the waveform data
-            msg = Float32MultiArray()
-            msg.data = data
-            self.pub_waveform.publish(msg)
-            
+            for _, (publisher, key) in waveforms.items():
+                msg = Float32()
+                msg.data = (
+                    self.latest_waveform_data[key]['value']
+                    if self.latest_waveform_data[key]['value'] is not None
+                    else -1.0
+                )
+                publisher.publish(msg)
+                
         except Exception as e:
             self.get_logger().error(f"Waveform callback error: {e}")
 
@@ -429,21 +452,25 @@ class VitalParamPlotter(Node):
             self._update_latest_waveform_data()
             
             # Update labels
-            if self.latest_ecg is not None:
-                self.lbl_ecg.config(text=f"ECG HR: {self.latest_ecg:.0f} BPM")
-            if self.latest_spo2 is not None:
-                self.lbl_spo2.config(text=f"SpO2: {self.latest_spo2:.0f}%")
+            if self.latest_numeric_data['ecg']['value'] is not None:
+                self.lbl_ecg.config(text=f"ECG HR: {self.latest_numeric_data['ecg']['value']:.0f} BPM")
+            if self.latest_numeric_data['spo2']['value'] is not None:
+                self.lbl_spo2.config(text=f"SpO2: {self.latest_numeric_data['spo2']['value']:.0f}%")
             
             # Update NIBP display
-            if self.latest_nibp_sys is not None and self.latest_nibp_dia is not None:
-                self.lbl_nibp_values.config(text=f"{self.latest_nibp_sys:.0f} / {self.latest_nibp_dia:.0f}")
-            elif self.latest_nibp_sys is not None:
-                self.lbl_nibp_values.config(text=f"{self.latest_nibp_sys:.0f} / --")
-            elif self.latest_nibp_dia is not None:
-                self.lbl_nibp_values.config(text=f"-- / {self.latest_nibp_dia:.0f}")
+            nibp_sys = self.latest_numeric_data['nibp_sys']['value']
+            nibp_dia = self.latest_numeric_data['nibp_dia']['value']
+            nibp_mean = self.latest_numeric_data['nibp_mean']['value']
+
+            if nibp_sys is not None and nibp_dia is not None:
+                self.lbl_nibp_values.config(text=f"{nibp_sys:.0f} / {nibp_dia:.0f}")
+            elif nibp_sys is not None:
+                self.lbl_nibp_values.config(text=f"{nibp_sys:.0f} / --")
+            elif nibp_dia is not None:
+                self.lbl_nibp_values.config(text=f"-- / {nibp_dia:.0f}")
             
-            if self.latest_nibp_mean is not None:
-                self.lbl_nibp_mean.config(text=f"Mean: {self.latest_nibp_mean:.0f}")
+            if nibp_mean is not None:
+                self.lbl_nibp_mean.config(text=f"Mean: {nibp_mean:.0f}")
 
             # Waveform plots using monitor data (no ECG HR numeric plot)
             waveform_configs = [
@@ -476,9 +503,6 @@ class VitalParamPlotter(Node):
         # Continue updating if still running
         if hasattr(self, 'root'):
             self.root.after(200, self._update_plot)
-
-
-
 
 
 def main(args=None):
