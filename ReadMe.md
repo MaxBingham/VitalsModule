@@ -138,6 +138,103 @@ sudo docker logs foxglove_bridge -f
 **No data in Foxglove despite topics being visible:**
 Both containers must have `ipc: host` set in `docker-compose.yml`. Without it, FastDDS shared memory is blocked between containers and no messages are delivered even though topics are discoverable.
 
+### 4.6 Smooth Continuous Plots with User Scripts
+
+The waveform data is published at natural sensor rates (100-250 Hz), but numeric vitals are sparse (10 Hz). To visualize both smoothly without visible jumps, use a **Foxglove User Script** for linear interpolation.
+
+**Setup in Foxglove Studio:**
+
+1. Click **User Scripts** in the left sidebar
+2. Click **"+"** to add a new script
+3. Name it: `waveform_interpolator`
+4. Paste the script below
+5. Add **Plot** panels and subscribe to the output topics:
+   - `/foxglove/waveform_pleth_smooth`
+   - `/foxglove/waveform_ecg1_smooth`
+   - `/foxglove/waveform_resp_smooth`
+   - `/foxglove/waveform_invp1_smooth`
+
+**Foxglove User Script (TypeScript):**
+
+```typescript
+import { Message } from "@foxglove/studio";
+
+interface WaveformState {
+  lastValue: number | null;
+  lastTimestamp: number | null;
+  secondLastValue: number | null;
+  secondLastTimestamp: number | null;
+}
+
+// Maintain state for each waveform
+const waveforms: Record<string, WaveformState> = {
+  pleth: { lastValue: null, lastTimestamp: null, secondLastValue: null, secondLastTimestamp: null },
+  ecg1: { lastValue: null, lastTimestamp: null, secondLastValue: null, secondLastTimestamp: null },
+  resp: { lastValue: null, lastTimestamp: null, secondLastValue: null, secondLastTimestamp: null },
+  invp1: { lastValue: null, lastTimestamp: null, secondLastValue: null, secondLastTimestamp: null },
+};
+
+const topics = [
+  { input: "/waveform_pleth", key: "pleth", output: "waveform_pleth_smooth" },
+  { input: "/waveform_ecg1", key: "ecg1", output: "waveform_ecg1_smooth" },
+  { input: "/waveform_resp", key: "resp", output: "waveform_resp_smooth" },
+  { input: "/waveform_invp1", key: "invp1", output: "waveform_invp1_smooth" },
+];
+
+export const inputs = topics.map((t) => t.input);
+export const output = "visualization";
+
+export function activate(ctx: any) {
+  // Watch each waveform topic
+  topics.forEach(({ input, key, output }) => {
+    ctx.watch(input, (msg: any) => {
+      const value = msg.message.data;
+      const timestamp = msg.receiveTime.sec + msg.receiveTime.nsec / 1e9;
+
+      // Skip invalid data
+      if (value === -1.0 || isNaN(value)) {
+        return;
+      }
+
+      const state = waveforms[key];
+
+      // Shift: move current to "previous"
+      state.secondLastValue = state.lastValue;
+      state.secondLastTimestamp = state.lastTimestamp;
+      state.lastValue = value;
+      state.lastTimestamp = timestamp;
+
+      // Only interpolate if we have two samples
+      if (state.secondLastValue !== null && state.secondLastTimestamp !== null) {
+        const timeDiff = state.lastTimestamp - state.secondLastTimestamp;
+        const valueDiff = state.lastValue - state.secondLastValue;
+
+        // Generate points at 100 Hz between the two samples
+        const interpolationRate = 100;
+        const numPoints = Math.max(1, Math.ceil(timeDiff * interpolationRate));
+
+        for (let i = 0; i <= numPoints; i++) {
+          // t goes from 0 to 1 as we move from old sample to new sample
+          const t = i / numPoints;
+
+          // Linear interpolation
+          const interpolatedTime = state.secondLastTimestamp + t * timeDiff;
+          const interpolatedValue = state.secondLastValue + t * valueDiff;
+
+          // Publish the fake point
+          ctx.publish(output, {
+            timestamp: interpolatedTime,
+            value: interpolatedValue,
+          });
+        }
+      }
+    });
+  });
+}
+```
+
+**Result:** All four waveform plots will now render smoothly without visible jumps between samples.
+
 ---
 
 ## 5. Starting the vital recorder ⚠️ *[NEW — TO BE CHECKED]*
