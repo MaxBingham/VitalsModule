@@ -13,7 +13,6 @@ from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 import rclpy
 from rclpy.node import Node
 from std_msgs.msg import Float32
-
 from .run_vscapture import VSCaptureManager
 from .waveform_monitors import create_waveform_monitors
 

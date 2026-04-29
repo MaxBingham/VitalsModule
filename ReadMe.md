@@ -58,11 +58,11 @@ ros2 run vital_recording ui_vital
 ![The GUI window for vital signal from medical monitor.](docs/ui_window_vital.png)
 
 
-## 4. Foxglove Bridge — Live Visualisation ⚠️ *[UPDATED: Separate topics instead of arrays]*
+## 4. Foxglove Bridge — Live Visualisation
 
 The Foxglove Bridge streams all ROS 2 topics to [Foxglove Studio](https://foxglove.dev) over WebSocket, allowing live visualisation without entering the container.
 
-> **Recent change:** Topics are now published as separate named topics (e.g., `/numeric_ecg_hr`, `/waveform_pleth`) instead of bundled into `Float32MultiArray`. This makes Foxglove panel subscription simpler and avoids timestamp confusion when plotting.
+Each signal is published on its own named topic (e.g. `/numeric_ecg_hr`, `/waveform_pleth`) as a `Float32` message. This makes Foxglove panel subscription straightforward — subscribe to the topic you want by name, no array indexing required.
 
 ### 4.1 Starting the bridge
 
@@ -101,7 +101,7 @@ sudo docker compose up -d foxglove-bridge
 | `/waveform_resp` | `Float32` | Respiration waveform sample |
 | `/waveform_invp1` | `Float32` | Invasive pressure waveform sample (mmHg) |
 
-> **Note:** All topics publish individual `Float32` messages. Values are `-1.0` when no data is available. Each topic represents one logical signal, eliminating array indexing confusion and making Foxglove panel subscription straightforward.
+> **Note:** All topics publish individual `Float32` messages. A value of `-1.0` indicates no data is available for that signal.
 
 ### 4.4 Viewing data in Foxglove Studio
 
@@ -116,9 +116,9 @@ sudo docker compose up -d foxglove-bridge
 **All topics with raw values:**
 - Add a **Raw Messages** panel → subscribe to any topic to see the latest Float32 value
 
-> **Tip:** Each topic name is now self-documenting, so you know exactly which signal you're looking at without counting array indices.
+> **Tip:** Each topic name is self-documenting — you always know exactly which signal you're looking at.
 
-### 4.5 Troubleshooting ⚠️ *[NEW — TO BE CHECKED]*
+### 4.5 Troubleshooting
 
 **Check bridge is healthy:**
 ```bash
@@ -140,7 +140,9 @@ Both containers must have `ipc: host` set in `docker-compose.yml`. Without it, F
 
 ### 4.6 Smooth Continuous Plots with User Scripts
 
-The waveform data is published at natural sensor rates (100-250 Hz), but numeric vitals are sparse (10 Hz). To visualize both smoothly without visible jumps, use a **Foxglove User Script** for linear interpolation.
+Waveform topics publish every sample at the sensor's natural rate (100–250 Hz), so they render as continuous curves in Foxglove without any extra processing. Numeric vitals are sparse (10 Hz) and will show visible jumps between updates.
+
+To smooth either signal type in Foxglove, use a **User Script** for linear interpolation between samples.
 
 **Setup in Foxglove Studio:**
 
@@ -233,11 +235,11 @@ export function activate(ctx: any) {
 }
 ```
 
-**Result:** All four waveform plots will now render smoothly without visible jumps between samples.
+**Result:** Plots will render with interpolated points between real samples, eliminating visible jumps on low-rate signals.
 
 ---
 
-## 5. Starting the vital recorder ⚠️ *[NEW — TO BE CHECKED]*
+## 5. Starting the vital recorder
 
 Always start `ui_vital` with `ROS_DOMAIN_ID=42` set explicitly. Without it the node runs on domain 0 and is invisible to the Foxglove bridge (domain 42):
 
@@ -251,10 +253,10 @@ sudo docker exec -it vital-param-recorder bash -c "export ROS_DOMAIN_ID=42 && ro
 
 ## 6. Export files from the container to outside
 
-### 4.1 Exported data
+### 6.1 Exported data
 You can check all exported data from sensors at `/export`. Check rosbag data for all topics at `/export/rosbag`.
 
-### 4.2 Manuelly export dats
+### 6.2 Manually export data
 Run the command outside the container to export files generated inside the container.
 ```shell
 docker cp <container_name>:/path/in/container /path/on/host
