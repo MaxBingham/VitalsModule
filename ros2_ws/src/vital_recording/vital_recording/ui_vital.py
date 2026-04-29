@@ -94,7 +94,7 @@ class VitalParamPlotter(Node):
         # Create timers to publish numeric and waveform data
         self.start_time = time.time()
         self.numeric_timer = self.create_timer(0.1, self._numeric_data_cb)
-        self.waveform_timer = self.create_timer(0.01, self._wave_data_cb)
+        self.waveform_timer = self.create_timer(0.004, self._wave_data_cb)
 
         self.get_logger().info("Initialized Vital Parameter Plotter")
 
@@ -427,7 +427,7 @@ class VitalParamPlotter(Node):
                 (self.invp1_monitor, self.pub_invp1),
             ]
             for monitor, publisher in monitor_publishers:
-                while monitor.publish_queue:
+                if monitor.publish_queue:
                     value = monitor.publish_queue.popleft()
                     msg = Float32()
                     msg.data = value
