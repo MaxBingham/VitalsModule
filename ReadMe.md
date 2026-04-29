@@ -58,9 +58,11 @@ ros2 run vital_recording ui_vital
 ![The GUI window for vital signal from medical monitor.](docs/ui_window_vital.png)
 
 
-## 4. Foxglove Bridge — Live Visualisation ⚠️ *[NEW — TO BE CHECKED]*
+## 4. Foxglove Bridge — Live Visualisation ⚠️ *[UPDATED: Separate topics instead of arrays]*
 
 The Foxglove Bridge streams all ROS 2 topics to [Foxglove Studio](https://foxglove.dev) over WebSocket, allowing live visualisation without entering the container.
+
+> **Recent change:** Topics are now published as separate named topics (e.g., `/numeric_ecg_hr`, `/waveform_pleth`) instead of bundled into `Float32MultiArray`. This makes Foxglove panel subscription simpler and avoids timestamp confusion when plotting.
 
 ### 4.1 Starting the bridge
 
@@ -80,18 +82,41 @@ sudo docker compose up -d foxglove-bridge
 
 ### 4.3 Available topics
 
-| Topic | Type | Fields |
+**Numeric Vitals (10 Hz):**
+
+| Topic | Type | Description |
 |---|---|---|
-| `/vital_numeric_data` | `Float32MultiArray` | `[timestamp, ECG_HR, SpO2, NIBP_sys, NIBP_dia, NIBP_mean]` — value is `-1` when not measured |
-| `/vital_waveform_data` | `Float32MultiArray` | `[timestamp, pleth, ecg1, resp, invp1]` |
+| `/numeric_ecg_hr` | `Float32` | ECG heart rate in bpm |
+| `/numeric_spo2` | `Float32` | Oxygen saturation in % |
+| `/numeric_nibp_sys` | `Float32` | Systolic blood pressure in mmHg |
+| `/numeric_nibp_dia` | `Float32` | Diastolic blood pressure in mmHg |
+| `/numeric_nibp_mean` | `Float32` | Mean blood pressure in mmHg |
+
+**Waveforms (100-250 Hz depending on sensor):**
+
+| Topic | Type | Description |
+|---|---|---|
+| `/waveform_pleth` | `Float32` | Plethysmography waveform sample |
+| `/waveform_ecg1` | `Float32` | ECG waveform sample (mV) |
+| `/waveform_resp` | `Float32` | Respiration waveform sample |
+| `/waveform_invp1` | `Float32` | Invasive pressure waveform sample (mmHg) |
+
+> **Note:** All topics publish individual `Float32` messages. Values are `-1.0` when no data is available. Each topic represents one logical signal, eliminating array indexing confusion and making Foxglove panel subscription straightforward.
 
 ### 4.4 Viewing data in Foxglove Studio
 
-- **Raw values:** Add a **Raw Messages** panel → set topic to `/vital_numeric_data`
-- **Plot HR or SpO2:** Add a **Plot** panel → **Add series** → enter path manually, e.g.:
-  - `/vital_numeric_data.data[1]` — ECG HR
-  - `/vital_numeric_data.data[2]` — SpO2
-- **Waveforms:** Add a **Plot** panel → `/vital_waveform_data.data[1]` for pleth, `[2]` for ECG, etc.
+**Numeric Vitals (scalars):**
+- Add a **Gauge** or **State** panel → subscribe to any `/numeric_*` topic
+
+**Waveforms (time-series with lines):**
+- Add a **Plot** panel → subscribe to any `/waveform_*` topic
+- Enable "Show lines" in the panel settings for sparse low-frequency data to appear connected
+- Example: `/waveform_pleth` for plethysmography, `/waveform_ecg1` for ECG waveform
+
+**All topics with raw values:**
+- Add a **Raw Messages** panel → subscribe to any topic to see the latest Float32 value
+
+> **Tip:** Each topic name is now self-documenting, so you know exactly which signal you're looking at without counting array indices.
 
 ### 4.5 Troubleshooting ⚠️ *[NEW — TO BE CHECKED]*
 
