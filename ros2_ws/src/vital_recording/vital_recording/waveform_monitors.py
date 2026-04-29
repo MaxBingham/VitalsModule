@@ -9,6 +9,8 @@ implementations for different types of waveform data (Pleth, ECG1, Resp, INVP1).
 import os
 import time
 from abc import ABC, abstractmethod
+from collections import deque
+
 
 
 class WaveformMonitor(ABC):
@@ -35,6 +37,7 @@ class WaveformMonitor(ABC):
         # Data buffers
         self.time_buffer = []
         self.value_buffer = []
+        self.publish_queue = deque()
         
         # Tracking variables
         self.file_position = 0
@@ -51,6 +54,7 @@ class WaveformMonitor(ABC):
         """Reset all buffers and tracking variables"""
         self.time_buffer.clear()
         self.value_buffer.clear()
+        self.publish_queue.clear()
         self.file_position = 0
         self.sample_index = 0
         self.latest_value = None
@@ -84,6 +88,8 @@ class WaveformMonitor(ABC):
                                 # Add to buffers
                                 self.time_buffer.append(timestamp)
                                 self.value_buffer.append(value)
+                                self.publish_queue.append(value) 
+
                                 
                                 # Update latest data for publishing
                                 self.latest_value = value

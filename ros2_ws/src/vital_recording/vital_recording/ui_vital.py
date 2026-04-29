@@ -420,29 +420,19 @@ class VitalParamPlotter(Node):
                 self.latest_waveform_data[param_name]['timestamp'] = monitor.latest_timestamp
 
     def _wave_data_cb(self):
-        """Publish latest waveform data with timestamps"""
         try:
-            # Update latest waveform data from monitors
-            self._update_latest_waveform_data()
-            
-            # Publish individual waveform streams as Float32 messages
-            # Each contains one sample point
-            waveforms = {
-                'pleth': (self.pub_pleth, 'pleth'),
-                'ecg1': (self.pub_ecg1, 'ecg1'),
-                'resp': (self.pub_resp, 'resp'),
-                'invp1': (self.pub_invp1, 'invp1')
-            }
-            
-            for _, (publisher, key) in waveforms.items():
-                msg = Float32()
-                msg.data = (
-                    self.latest_waveform_data[key]['value']
-                    if self.latest_waveform_data[key]['value'] is not None
-                    else -1.0
-                )
-                publisher.publish(msg)
-                
+            monitor_publishers = [
+                (self.pleth_monitor, self.pub_pleth),
+                (self.ecg1_monitor, self.pub_ecg1),
+                (self.resp_monitor, self.pub_resp),
+                (self.invp1_monitor, self.pub_invp1),
+            ]
+            for monitor, publisher in monitor_publishers:
+                while monitor.publish_queue:
+                    value = monitor.publish_queue.popleft()
+                    msg = Float32()
+                    msg.data = value
+                    publisher.publish(msg)
         except Exception as e:
             self.get_logger().error(f"Waveform callback error: {e}")
 
