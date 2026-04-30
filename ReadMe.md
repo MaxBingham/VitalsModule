@@ -58,9 +58,11 @@ ros2 run vital_recording ui_vital
 ![The GUI window for vital signal from medical monitor.](docs/ui_window_vital.png)
 
 
-## 4. Foxglove Bridge — Live Visualisation ⚠️ *[NEW — TO BE CHECKED]*
+## 4. Foxglove Bridge — Live Visualisation
 
 The Foxglove Bridge streams all ROS 2 topics to [Foxglove Studio](https://foxglove.dev) over WebSocket, allowing live visualisation without entering the container.
+
+Each signal is published on its own named topic (e.g. `/numeric_ecg_hr`, `/waveform_pleth`) as a `Float32` message. This makes Foxglove panel subscription straightforward — subscribe to the topic you want by name, no array indexing required.
 
 ### 4.1 Starting the bridge
 
@@ -80,20 +82,43 @@ sudo docker compose up -d foxglove-bridge
 
 ### 4.3 Available topics
 
-| Topic | Type | Fields |
+**Numeric Vitals (10 Hz):**
+
+| Topic | Type | Description |
 |---|---|---|
-| `/vital_numeric_data` | `Float32MultiArray` | `[timestamp, ECG_HR, SpO2, NIBP_sys, NIBP_dia, NIBP_mean]` — value is `-1` when not measured |
-| `/vital_waveform_data` | `Float32MultiArray` | `[timestamp, pleth, ecg1, resp, invp1]` |
+| `/numeric_ecg_hr` | `Float32` | ECG heart rate in bpm |
+| `/numeric_spo2` | `Float32` | Oxygen saturation in % |
+| `/numeric_nibp_sys` | `Float32` | Systolic blood pressure in mmHg |
+| `/numeric_nibp_dia` | `Float32` | Diastolic blood pressure in mmHg |
+| `/numeric_nibp_mean` | `Float32` | Mean blood pressure in mmHg |
+
+**Waveforms (100-250 Hz depending on sensor):**
+
+| Topic | Type | Description |
+|---|---|---|
+| `/waveform_pleth` | `Float32` | Plethysmography waveform sample |
+| `/waveform_ecg1` | `Float32` | ECG waveform sample (mV) |
+| `/waveform_resp` | `Float32` | Respiration waveform sample |
+| `/waveform_invp1` | `Float32` | Invasive pressure waveform sample (mmHg) |
+
+> **Note:** All topics publish individual `Float32` messages. A value of `-1.0` indicates no data is available for that signal.
 
 ### 4.4 Viewing data in Foxglove Studio
 
-- **Raw values:** Add a **Raw Messages** panel → set topic to `/vital_numeric_data`
-- **Plot HR or SpO2:** Add a **Plot** panel → **Add series** → enter path manually, e.g.:
-  - `/vital_numeric_data.data[1]` — ECG HR
-  - `/vital_numeric_data.data[2]` — SpO2
-- **Waveforms:** Add a **Plot** panel → `/vital_waveform_data.data[1]` for pleth, `[2]` for ECG, etc.
+**Numeric Vitals (scalars):**
+- Add a **Gauge** or **State** panel → subscribe to any `/numeric_*` topic
 
-### 4.5 Troubleshooting ⚠️ *[NEW — TO BE CHECKED]*
+**Waveforms (time-series with lines):**
+- Add a **Plot** panel → subscribe to any `/waveform_*` topic
+- Enable "Show lines" in the panel settings for sparse low-frequency data to appear connected
+- Example: `/waveform_pleth` for plethysmography, `/waveform_ecg1` for ECG waveform
+
+**All topics with raw values:**
+- Add a **Raw Messages** panel → subscribe to any topic to see the latest Float32 value
+
+> **Tip:** Each topic name is self-documenting — you always know exactly which signal you're looking at.
+
+### 4.5 Troubleshooting
 
 **Check bridge is healthy:**
 ```bash
@@ -113,9 +138,108 @@ sudo docker logs foxglove_bridge -f
 **No data in Foxglove despite topics being visible:**
 Both containers must have `ipc: host` set in `docker-compose.yml`. Without it, FastDDS shared memory is blocked between containers and no messages are delivered even though topics are discoverable.
 
+### 4.6 Smooth Continuous Plots with User Scripts
+
+Waveform topics publish every sample at the sensor's natural rate (100–250 Hz), so they render as continuous curves in Foxglove without any extra processing. Numeric vitals are sparse (10 Hz) and will show visible jumps between updates.
+
+To smooth either signal type in Foxglove, use a **User Script** for linear interpolation between samples.
+
+**Setup in Foxglove Studio:**
+
+1. Click **User Scripts** in the left sidebar
+2. Click **"+"** to add a new script
+3. Name it: `waveform_interpolator`
+4. Paste the script below
+5. Add **Plot** panels and subscribe to the output topics:
+   - `/foxglove/waveform_pleth_smooth`
+   - `/foxglove/waveform_ecg1_smooth`
+   - `/foxglove/waveform_resp_smooth`
+   - `/foxglove/waveform_invp1_smooth`
+
+**Foxglove User Script (TypeScript):**
+
+```typescript
+import { Message } from "@foxglove/studio";
+
+interface WaveformState {
+  lastValue: number | null;
+  lastTimestamp: number | null;
+  secondLastValue: number | null;
+  secondLastTimestamp: number | null;
+}
+
+// Maintain state for each waveform
+const waveforms: Record<string, WaveformState> = {
+  pleth: { lastValue: null, lastTimestamp: null, secondLastValue: null, secondLastTimestamp: null },
+  ecg1: { lastValue: null, lastTimestamp: null, secondLastValue: null, secondLastTimestamp: null },
+  resp: { lastValue: null, lastTimestamp: null, secondLastValue: null, secondLastTimestamp: null },
+  invp1: { lastValue: null, lastTimestamp: null, secondLastValue: null, secondLastTimestamp: null },
+};
+
+const topics = [
+  { input: "/waveform_pleth", key: "pleth", output: "waveform_pleth_smooth" },
+  { input: "/waveform_ecg1", key: "ecg1", output: "waveform_ecg1_smooth" },
+  { input: "/waveform_resp", key: "resp", output: "waveform_resp_smooth" },
+  { input: "/waveform_invp1", key: "invp1", output: "waveform_invp1_smooth" },
+];
+
+export const inputs = topics.map((t) => t.input);
+export const output = "visualization";
+
+export function activate(ctx: any) {
+  // Watch each waveform topic
+  topics.forEach(({ input, key, output }) => {
+    ctx.watch(input, (msg: any) => {
+      const value = msg.message.data;
+      const timestamp = msg.receiveTime.sec + msg.receiveTime.nsec / 1e9;
+
+      // Skip invalid data
+      if (value === -1.0 || isNaN(value)) {
+        return;
+      }
+
+      const state = waveforms[key];
+
+      // Shift: move current to "previous"
+      state.secondLastValue = state.lastValue;
+      state.secondLastTimestamp = state.lastTimestamp;
+      state.lastValue = value;
+      state.lastTimestamp = timestamp;
+
+      // Only interpolate if we have two samples
+      if (state.secondLastValue !== null && state.secondLastTimestamp !== null) {
+        const timeDiff = state.lastTimestamp - state.secondLastTimestamp;
+        const valueDiff = state.lastValue - state.secondLastValue;
+
+        // Generate points at 100 Hz between the two samples
+        const interpolationRate = 100;
+        const numPoints = Math.max(1, Math.ceil(timeDiff * interpolationRate));
+
+        for (let i = 0; i <= numPoints; i++) {
+          // t goes from 0 to 1 as we move from old sample to new sample
+          const t = i / numPoints;
+
+          // Linear interpolation
+          const interpolatedTime = state.secondLastTimestamp + t * timeDiff;
+          const interpolatedValue = state.secondLastValue + t * valueDiff;
+
+          // Publish the fake point
+          ctx.publish(output, {
+            timestamp: interpolatedTime,
+            value: interpolatedValue,
+          });
+        }
+      }
+    });
+  });
+}
+```
+
+**Result:** Plots will render with interpolated points between real samples, eliminating visible jumps on low-rate signals.
+
 ---
 
-## 5. Starting the vital recorder ⚠️ *[NEW — TO BE CHECKED]*
+## 5. Starting the vital recorder
 
 Always start `ui_vital` with `ROS_DOMAIN_ID=42` set explicitly. Without it the node runs on domain 0 and is invisible to the Foxglove bridge (domain 42):
 
@@ -129,10 +253,10 @@ sudo docker exec -it vital-param-recorder bash -c "export ROS_DOMAIN_ID=42 && ro
 
 ## 6. Export files from the container to outside
 
-### 4.1 Exported data
+### 6.1 Exported data
 You can check all exported data from sensors at `/export`. Check rosbag data for all topics at `/export/rosbag`.
 
-### 4.2 Manuelly export dats
+### 6.2 Manually export data
 Run the command outside the container to export files generated inside the container.
 ```shell
 docker cp <container_name>:/path/in/container /path/on/host
