@@ -12,7 +12,7 @@ from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 
 import rclpy
 from rclpy.node import Node
-from std_msgs.msg import Float32
+from std_msgs.msg import Float32, String
 from .run_vscapture import VSCaptureManager
 from .waveform_monitors import create_waveform_monitors
 
@@ -27,6 +27,7 @@ class VitalParamPlotter(Node):
         self.pub_nibp_sys = self.create_publisher(Float32, 'numeric_nibp_sys', 10)
         self.pub_nibp_dia = self.create_publisher(Float32, 'numeric_nibp_dia', 10)
         self.pub_nibp_mean = self.create_publisher(Float32, 'numeric_nibp_mean', 10)
+        self.pub_nibp_combined = self.create_publisher(String, 'numeric_nibp', 10)
 
         #self.pub_waveform = self.create_publisher(Float32MultiArray, 'vital_waveform_data', 10)
         self.pub_pleth = self.create_publisher(Float32, 'waveform_pleth', 10)
@@ -413,6 +414,14 @@ class VitalParamPlotter(Node):
             value = self.latest_numeric_data[key]['value']
             msg.data = value if value is not None else -1.0
             publisher.publish(msg)
+
+        nibp_sys = self.latest_numeric_data['nibp_sys']['value']
+        nibp_dia = self.latest_numeric_data['nibp_dia']['value']
+        sys_str = f"{nibp_sys:.0f}" if nibp_sys is not None else "--"
+        dia_str = f"{nibp_dia:.0f}" if nibp_dia is not None else "--"
+        combined_msg = String()
+        combined_msg.data = f"{sys_str}/{dia_str}"
+        self.pub_nibp_combined.publish(combined_msg)
 
         # Each message carries one value - no array indexing to manage.
 # ---------------------------------------------------------------------
