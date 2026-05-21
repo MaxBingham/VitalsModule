@@ -1,0 +1,113 @@
+{
+  "configById": {
+    "Plot!41hwtvp": {
+      "paths": [
+        {
+          "timestampMethod": "receiveTime",
+          "value": "/waveform_ecg1.data",
+          "enabled": true,
+          "color": "#4e98e2",
+          "id": "864e1763-caf8-4f01-aab2-98d19be26709"
+        }
+      ],
+      "timeWindowMode": "sliding",
+      "followingViewWidth": 5
+    },
+    "Plot!3x8nqb": {
+      "paths": [
+        {
+          "timestampMethod": "receiveTime",
+          "value": "/waveform_invp1.data",
+          "enabled": true,
+          "color": "#4e98e2",
+          "id": "203d8f19-0560-43c1-b66e-77b99ac0d8a4"
+        }
+      ],
+      "timeWindowMode": "sliding",
+      "followingViewWidth": 5
+    },
+    "Plot!408nnrv": {
+      "paths": [
+        {
+          "timestampMethod": "receiveTime",
+          "value": "/waveform_pleth.data",
+          "enabled": true,
+          "color": "#4e98e2",
+          "id": "4bd1f0e9-18ce-4c38-8f93-6d9cb1c3977b",
+          "timestampPath": "",
+          "lineSize": 1.2,
+          "showLine": true
+        }
+      ],
+      "xAxisVal": "timestamp",
+      "xAxisPath": {
+        "value": ""
+      },
+      "timeWindowMode": "sliding",
+      "followingViewWidth": 5,
+      "playbackBarPosition": "right"
+    },
+    "Plot!1sy4end": {
+      "paths": [
+        {
+          "timestampMethod": "receiveTime",
+          "value": "/waveform_resp.data",
+          "enabled": true,
+          "color": "#4e98e2",
+          "id": "8bed9c58-0dca-4af3-832b-f9f7435403c3"
+        }
+      ],
+      "timeWindowMode": "sliding",
+      "followingViewWidth": 5
+    },
+    "RawMessages!18y1yvp": {
+      "defaultExpanded": false,
+      "topicPath": "/numeric_ecg_hr.data",
+      "fontSize": 48
+    },
+    "RawMessages!2c6phho": {
+      "defaultExpanded": false,
+      "topicPath": "/numeric_nibp.data",
+      "fontSize": 48
+    },
+    "RawMessages!3uhjt01": {
+      "defaultExpanded": false,
+      "topicPath": "/numeric_spo2.data",
+      "fontSize": 48
+    }
+  },
+  "globalVariables": {},
+  "userNodes": {},
+  "playbackConfig": {
+    "speed": 1
+  },
+  "drawerConfig": {
+    "tracks": []
+  },
+  "layout": {
+    "first": {
+      "first": {
+        "first": "Plot!41hwtvp",
+        "second": "Plot!3x8nqb",
+        "direction": "column"
+      },
+      "second": {
+        "first": "Plot!408nnrv",
+        "second": "Plot!1sy4end",
+        "direction": "column"
+      },
+      "direction": "column"
+    },
+    "second": {
+      "first": {
+        "first": "RawMessages!18y1yvp",
+        "second": "RawMessages!2c6phho",
+        "direction": "column"
+      },
+      "second": "RawMessages!3uhjt01",
+      "direction": "column"
+    },
+    "direction": "row",
+    "splitPercentage": 73.30462863293864
+  }
+}
