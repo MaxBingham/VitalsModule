@@ -5,10 +5,8 @@ import os
 import json
 import time
 import threading
-import tkinter as tk
-from tkinter import ttk
-import matplotlib.pyplot as plt
-from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
+import subprocess
+import signal
 
 import rclpy
 from rclpy.node import Node
@@ -19,6 +17,7 @@ from .waveform_monitors import create_waveform_monitors
 class VitalParamPlotter(Node):
     def __init__(self):
         super().__init__('vital_param_plotter')
+        self._shutting_down = False
 
         # ROS publisher
         #self.pub_numeric = self.create_publisher(Float32MultiArray, 'vital_numeric_data', 10)
@@ -37,6 +36,29 @@ class VitalParamPlotter(Node):
 
         # VSCapture manager
         self.vscapture_manager = VSCaptureManager()
+
+        # Rosbag recording
+        self.rosbag_process = None
+        self.rosbag_topic_list = [
+            '/camera/camera/color/image_raw',
+            '/camera/camera/depth/image_rect_raw',
+            '/camera/camera/color/camera_info',
+            '/tf',
+            '/tf_static',
+            '/audio',
+            '/gsr_data',
+            # Vital topics actually published by this node:
+            '/numeric_ecg_hr',
+            '/numeric_spo2',
+            '/numeric_nibp_sys',
+            '/numeric_nibp_dia',
+            '/numeric_nibp_mean',
+            '/numeric_nibp',
+            '/waveform_pleth',
+            '/waveform_ecg1',
+            '/waveform_resp',
+            '/waveform_invp1',
+        ]
 
         # File paths
         self.json_file = "/opt/vscapture/VSCaptureCLIv1.006Binary/DataExportVSC.json"
@@ -80,17 +102,6 @@ class VitalParamPlotter(Node):
             'invp1': {'value': None, 'timestamp': None}
         }
 
-        # GUI setup
-        self.root = tk.Tk()
-        self.root.title("Vital Parameters Monitor")
-        self.root.geometry("1500x1200")
-        self._setup_gui()
-        self._setup_plot()
-        self.root.protocol("WM_DELETE_WINDOW", self._on_exit)
-
-        # Run ROS spin thread
-        threading.Thread(target=rclpy.spin, args=(self,), daemon=True).start()
-        self.root.after(200, self._update_plot)
         
         # Create timers to publish numeric and waveform data
         self.start_time = time.time()
@@ -106,96 +117,20 @@ class VitalParamPlotter(Node):
 
         self.get_logger().info("Initialized Vital Parameter Plotter")
 
-#--------------------------------------------------------------
-# setup GUI
-# -------------------------------------------------------------    
-    def _setup_gui(self):
-        # Main control frame
-        control_frame = ttk.LabelFrame(self.root, text="Vital Parameters Control", padding="10")
-        control_frame.pack(pady=10, padx=10, fill="x")
+        # --- Auto-start ---
 
-        # Single start button (starts both VSCapture and monitoring)
-        self.start_btn = ttk.Button(
-            control_frame, text="Start Recording", 
-            command=self._start_recording
-        )
-        self.start_btn.pack(side=tk.LEFT, padx=10)
-
-        # Single stop button (stops both monitoring and VSCapture)
-        self.stop_btn = ttk.Button(
-            control_frame, text="Stop Recording", 
-            command=self._stop_recording,
-            state=tk.DISABLED
-        )
-        self.stop_btn.pack(side=tk.LEFT, padx=10)
-
-        # Clear data button
-        self.clear_btn = ttk.Button(
-            control_frame, text="Clear Data", 
-            command=self._clear_data
-        )
-        self.clear_btn.pack(side=tk.LEFT, padx=10)
-
-        # Exit button
-        self.exit_btn = ttk.Button(
-            control_frame, text="Exit", 
-            command=self._on_exit
-        )
-        self.exit_btn.pack(side=tk.LEFT, padx=10)
-
-        # Status display frame
-        status_frame = ttk.Frame(self.root)
-        status_frame.pack(pady=10)
-        
-        # Current values display
-        values_frame = ttk.Frame(status_frame)
-        values_frame.pack(side=tk.LEFT, padx=20)
-
-        self.lbl_ecg = ttk.Label(values_frame, text="ECG HR: -- bpm", font=("Arial", 14, "bold"))
-        self.lbl_ecg.pack(side=tk.LEFT, padx=15)
-
-        self.lbl_spo2 = ttk.Label(values_frame, text="SpO2: -- %", font=("Arial", 14, "bold"))
-        self.lbl_spo2.pack(side=tk.LEFT, padx=15)
-
-        # NIBP display frame
-        nibp_frame = ttk.Frame(values_frame)
-        nibp_frame.pack(side=tk.LEFT, padx=20)
-        
-        # NIBP line 1: SYS (mmHg) DIA
-        self.lbl_nibp_title = ttk.Label(nibp_frame, text="SYS (mmHg) DIA", font=("Arial", 12, "bold"))
-        self.lbl_nibp_title.pack()
-        
-        # NIBP line 2: XXX / XXX
-        self.lbl_nibp_values = ttk.Label(nibp_frame, text="-- / --", font=("Arial", 14, "bold"))
-        self.lbl_nibp_values.pack()
-        
-        # NIBP line 3: Mean: XX
-        self.lbl_nibp_mean = ttk.Label(nibp_frame, text="Mean: --", font=("Arial", 12, "bold"))
-        self.lbl_nibp_mean.pack()
-
-        # Status label
-        self.lbl_status = ttk.Label(self.root, text="Status: Ready", foreground="blue", font=("Arial", 12))
-        self.lbl_status.pack(pady=5)
-
-    def _setup_plot(self):
-        """Setup 4 subplot layout for waveforms only"""
-        self.fig, (self.ax1, self.ax2, self.ax3, self.ax4) = plt.subplots(4, 1, figsize=(12, 10))
-        self.canvas = FigureCanvasTkAgg(self.fig, master=self.root)
-        self.canvas.get_tk_widget().pack(expand=True, fill=tk.BOTH)
-
+        self._auto_start()
 
 # ---------------- Recording Control (Button callbacks) ----------------
-    def _start_recording(self):
+    def _auto_start(self):
         # Step 1: Start VSCapture
-        self.lbl_status.config(text="Status: Starting VSCapture...", foreground="orange")
-        self.root.update()
             
         self.vscapture_manager.start()
             
         if not self.vscapture_manager.is_running:
-            self.lbl_status.config(text="Status: Failed to start VSCapture", foreground="red")
+            self.get_logger().error("Failed to start VSCapture")
             return
-            
+
         # Step 2: Clear old data files
         self._clear_data_files()
         time.sleep(0.1)
@@ -215,80 +150,57 @@ class VitalParamPlotter(Node):
                 daemon=True
             ).start()
 
-        # Step 5: Update UI
-        self.start_btn.config(state=tk.DISABLED)
-        self.stop_btn.config(state=tk.NORMAL)
-        self.lbl_status.config(text="Status: Recording & Monitoring Active", foreground="green")
+        self.get_logger().info("VSCapture and monitoring started")
 
-        self.get_logger().info("Started VSCapture and monitoring successfully")
+        self._start_rosbag()
 
+    def _start_rosbag(self):
+        current_time = time.localtime()
+        time_for_path = time.strftime("%Y-%m-%d_%H_%M_%S", current_time)
+        base_dir = "/export/rosbag"
 
-    def _stop_recording(self):
-        """Stop both data monitoring and VSCapture in one action"""
-        # Step 1: Stop monitoring
-        self.monitoring = False
-            
-        # Step 2: Stop VSCapture
-        if self.vscapture_manager.is_running:
-            self.vscapture_manager.stop()
-            
-        # Step 3: Update UI
-        self.start_btn.config(state=tk.NORMAL)
-        self.stop_btn.config(state=tk.DISABLED)
-        self.lbl_status.config(text="Status: Recording Stopped", foreground="blue")
-            
-        self.get_logger().info("Stopped VSCapture and monitoring successfully")
+        if not os.path.exists(base_dir):
+            try:
+                os.makedirs(base_dir, exist_ok=True)
+                self.get_logger().info(f"Created directory: {base_dir}")
+            except OSError as e:
+                self.get_logger().error(f"Failed to create directory {base_dir}: {e}")
+                return
 
+        bag_path = os.path.join(base_dir, time_for_path)
+        command = ["ros2", "bag", "record", "-o", bag_path]
+        for topic in self.rosbag_topic_list:
+            command.append(topic)
+        self.rosbag_process = subprocess.Popen(command)
+        self.get_logger().info(f"Started rosbag recording at {bag_path}")
 
-    def _on_exit(self):
-        """Clean shutdown"""
+    def _stop_rosbag(self):
+        if self.rosbag_process and self.rosbag_process.poll() is None:
+            self.rosbag_process.terminate()
+            self.rosbag_process.wait()
+            self.get_logger().info("Stopped rosbag recording.")
+        self.rosbag_process = None
+
+    def _shutdown(self):
+        if self._shutting_down:
+            return
+        self._shutting_down = True
+
         self.get_logger().info("Shutting down...")
-        
-        # Stop monitoring first
         self.monitoring = False
-        
-        # Stop timers
-        # --- PER-MONITOR TIMERS CANCEL ---
         for timer in getattr(self, 'waveform_timers', []):
             timer.cancel()
-        # --- END PER-MONITOR TIMERS CANCEL ---
         if hasattr(self, 'numeric_timer'):
             self.numeric_timer.cancel()
-        
-        # Stop VSCapture if running
         if hasattr(self, 'vscapture_manager') and self.vscapture_manager.is_running:
             try:
                 self.vscapture_manager.stop()
             except Exception as e:
                 self.get_logger().error(f"Error stopping VSCapture: {e}")
-        
-        # Shutdown ROS
-        try:
-            self.destroy_node()
-            rclpy.shutdown()
-        except Exception as e:
-            print(f"ROS shutdown warning: {e}")
-        
-        # Close GUI
-        try:
-            self.root.quit()
-            self.root.destroy()
-        except:
-            pass
+        self._stop_rosbag()
 
 
 # ------------------ Clear Data helpers ----------------
-    def _clear_data(self):
-        """Clear all plotted data"""
-        self._clear_plot_data()
-        
-        # Update display labels
-        self.lbl_ecg.config(text="ECG HR: --")
-        self.lbl_spo2.config(text="SpO2: --")
-        self.lbl_nibp_values.config(text="-- / --")
-        self.lbl_nibp_mean.config(text="Mean: --")
-
-        self.get_logger().info("Cleared all plot data")
 
     def _clear_plot_data(self):
         """Clear plot data arrays"""
@@ -447,82 +359,29 @@ class VitalParamPlotter(Node):
     # --- END PER-MONITOR PUBLISH ---
 
 
-# ---------------- Plot Update ----------------
-    def _update_plot(self):
-        try:
-            # Update latest waveform data from monitors
-            self._update_latest_waveform_data()
-            
-            # Update labels
-            if self.latest_numeric_data['ecg']['value'] is not None:
-                self.lbl_ecg.config(text=f"ECG HR: {self.latest_numeric_data['ecg']['value']:.0f} BPM")
-            if self.latest_numeric_data['spo2']['value'] is not None:
-                self.lbl_spo2.config(text=f"SpO2: {self.latest_numeric_data['spo2']['value']:.0f}%")
-            
-            # Update NIBP display
-            nibp_sys = self.latest_numeric_data['nibp_sys']['value']
-            nibp_dia = self.latest_numeric_data['nibp_dia']['value']
-            nibp_mean = self.latest_numeric_data['nibp_mean']['value']
-
-            if nibp_sys is not None and nibp_dia is not None:
-                self.lbl_nibp_values.config(text=f"{nibp_sys:.0f} / {nibp_dia:.0f}")
-            elif nibp_sys is not None:
-                self.lbl_nibp_values.config(text=f"{nibp_sys:.0f} / --")
-            elif nibp_dia is not None:
-                self.lbl_nibp_values.config(text=f"-- / {nibp_dia:.0f}")
-            
-            if nibp_mean is not None:
-                self.lbl_nibp_mean.config(text=f"Mean: {nibp_mean:.0f}")
-
-            # Waveform plots using monitor data (no ECG HR numeric plot)
-            waveform_configs = [
-                (self.ax1, self.pleth_monitor, "Plethysmography Waveform", "Amplitude", 'b-'),
-                (self.ax2, self.ecg1_monitor, "ECG Waveform", "mV", 'g-'),
-                (self.ax3, self.resp_monitor, "Respiration Waveform", "Amplitude", 'm-'),
-                (self.ax4, self.invp1_monitor, "Invasive Pressure Waveform", "mmHg", 'c-')
-            ]
-            
-            for ax, monitor, title, ylabel, color in waveform_configs:
-                ax.clear()
-                ax.set_title(title)
-                ax.set_ylabel(ylabel)
-                ax.grid(True)
-                
-                if monitor.time_buffer and monitor.value_buffer:
-                    ax.plot(monitor.time_buffer, monitor.value_buffer, color, linewidth=1)
-                    if len(monitor.time_buffer) > 1:
-                        ax.set_xlim(max(0, monitor.time_buffer[-1] - 15), monitor.time_buffer[-1])
-            
-            # Add x-label to the last plot
-            self.ax4.set_xlabel("Time (s)")
-
-            self.fig.tight_layout()
-            self.canvas.draw()
-            
-        except Exception as e:
-            self.get_logger().error(f"Plot update error: {e}")
-
-        # Continue updating if still running
-        if hasattr(self, 'root'):
-            self.root.after(200, self._update_plot)
-
-
 def main(args=None):
     rclpy.init(args=args)
     node = VitalParamPlotter()
+
+    def signal_handler(sig, frame):
+        node._shutdown()
+        node.destroy_node()
+        rclpy.shutdown()
+    signal.signal(signal.SIGTERM, signal_handler)
+    signal.signal(signal.SIGINT, signal_handler)
+
     try:
-        node.root.mainloop()
+        rclpy.spin(node)
     except KeyboardInterrupt:
         pass
     finally:
-        node.monitoring = False
-        if hasattr(node, 'vscapture_manager') and node.vscapture_manager.is_running:
-            node.vscapture_manager.stop()
-        try:
+        node._shutdown()
+        try: 
             node.destroy_node()
             rclpy.shutdown()
-        except:
+        except Exception:
             pass
+        
 
 
 if __name__ == "__main__":
