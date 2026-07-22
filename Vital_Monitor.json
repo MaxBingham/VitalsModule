@@ -1,0 +1,111 @@
+{
+  "configById": {
+    "Plot!wcsy2a": {
+      "paths": [
+        {
+          "timestampMethod": "receiveTime",
+          "value": "/waveform_ecg1.data",
+          "enabled": true,
+          "color": "#4e98e2",
+          "id": "9da81d44-5918-478e-95c6-db799556b72d"
+        }
+      ],
+      "isSynced": true
+    },
+    "Plot!1waa40a": {
+      "paths": [
+        {
+          "timestampMethod": "receiveTime",
+          "value": "/waveform_invp1.data",
+          "enabled": true,
+          "color": "#4e98e2",
+          "id": "0cdb5455-b2dd-46a2-a932-1f8f9cc7a85d"
+        }
+      ]
+    },
+    "Plot!3hv56bp": {
+      "paths": [
+        {
+          "timestampMethod": "publishTime",
+          "value": "/waveform_pleth.data",
+          "enabled": true,
+          "color": "#4e98e2",
+          "id": "32dbc4b7-e5b8-43cc-8577-8a488f7c09b3",
+          "xValuePath": "/parameter_events.stamp.sec",
+          "timestampPath": "",
+          "lineSize": 1,
+          "showLine": true
+        }
+      ],
+      "xAxisVal": "timestamp",
+      "isSynced": true,
+      "xAxisDisplayMethod": "relative",
+      "timeWindowMode": "automatic",
+      "timeRange": "all",
+      "xAxisPath": {
+        "value": "/rosout.stamp.nsec"
+      },
+      "axisScalesMode": "independent"
+    },
+    "Plot!1d89cgv": {
+      "paths": [
+        {
+          "timestampMethod": "receiveTime",
+          "value": "/waveform_resp.data",
+          "enabled": true,
+          "color": "#4e98e2",
+          "id": "c46ee912-a3f8-4876-ac56-41980738ae9f"
+        }
+      ]
+    },
+    "RawMessages!33w6row": {
+      "defaultExpanded": false,
+      "topicPath": "/numeric_ecg_hr.data",
+      "fontSize": 60
+    },
+    "RawMessages!1b4r76n": {
+      "defaultExpanded": false,
+      "topicPath": "/numeric_nibp.data",
+      "fontSize": 60
+    },
+    "RawMessages!os6rgs": {
+      "defaultExpanded": false,
+      "topicPath": "/numeric_spo2.data",
+      "fontSize": 60
+    }
+  },
+  "globalVariables": {},
+  "userNodes": {},
+  "playbackConfig": {
+    "speed": 1
+  },
+  "drawerConfig": {
+    "tracks": []
+  },
+  "layout": {
+    "direction": "row",
+    "first": {
+      "first": {
+        "first": "Plot!wcsy2a",
+        "second": "Plot!1waa40a",
+        "direction": "column"
+      },
+      "second": {
+        "first": "Plot!3hv56bp",
+        "second": "Plot!1d89cgv",
+        "direction": "column"
+      },
+      "direction": "column"
+    },
+    "second": {
+      "first": {
+        "first": "RawMessages!33w6row",
+        "second": "RawMessages!1b4r76n",
+        "direction": "column"
+      },
+      "second": "RawMessages!os6rgs",
+      "direction": "column"
+    },
+    "splitPercentage": 77.82561894510226
+  }
+}
