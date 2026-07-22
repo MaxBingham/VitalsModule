@@ -30,6 +30,9 @@ services:
       - ROS_DOMAIN_ID=${ROS_DOMAIN_ID:-42}
       - UID=${UID:-1000}
       - GID=${GID:-1000}
+      # AUTOSTART=1 (default): container auto-runs ui_vital.
+      # Override with `AUTOSTART=0 docker compose up` to drop to a shell instead.
+      - AUTOSTART=${AUTOSTART:-1}
     ipc: host
     group_add:
       - dialout  # Add dialout group for serial port access
