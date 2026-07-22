@@ -38,6 +38,7 @@ services:
       - dialout  # Add dialout group for serial port access
     restart: unless-stopped
 
+#If image doesnt exist build, otherwise use already existing one
   foxglove-bridge:
     build:
       context: ..
