@@ -33,8 +33,7 @@ sudo chown -R $USER:$USER ../export ../VSCaptureCLIv1.006Binary 2>/dev/null || t
 # NOTE: the first build on the Pi 5 is a multi-minute step (rosdep + colcon);
 # expect a long, mostly-silent phase here before the launcher continues.
 echo "Building and starting containers (first build can take several minutes)..."
-#Remove the --build flag
-docker compose -f docker-compose.yml up --build -d 
+docker compose -f docker-compose.yml up -d 
 
 # Wait for the Foxglove bridge WebSocket to come up. Use the bash /dev/tcp
 # builtin rather than `nc`, which may not be installed on the Pi host.
