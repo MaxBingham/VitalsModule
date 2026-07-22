@@ -1,0 +1,58 @@
+version: "3.9"
+services:
+  vital-param-recorder:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile
+    container_name: vital-param-recorder
+    tty: true
+    privileged: true
+    network_mode: host
+    devices:
+      - /dev/snd:/dev/snd
+      - /dev/ttyUSB0:/dev/ttyUSB0:rw  # For GE B450 monitor with read/write permissions
+    volumes:
+      # 1. Mount the source code so you can edit it on Desktop
+      - ../ros2_ws/src:/ros2_ws/src
+      
+      # 2. Mount the export folder to save your data/logs to Desktop
+      - ../export:/export
+      
+      # 3. System mounts for GUI
+      - /tmp/.X11-unix:/tmp/.X11-unix:rw
+      - /tmp/.docker.xauth:/tmp/.docker.xauth:rw
+      # 4. Mount VSCapture CLI binary with proper permissions
+      - ../VSCaptureCLIv1.006Binary:/opt/vscapture/VSCaptureCLIv1.006Binary:rw
+      
+    environment:
+      - DISPLAY=${DISPLAY}
+      - QT_X11_NO_MITSHM=1
+      - ROS_DOMAIN_ID=${ROS_DOMAIN_ID:-42}
+      - UID=${UID:-1000}
+      - GID=${GID:-1000}
+      # AUTOSTART=1 (default): container auto-runs ui_vital.
+      # Override with `AUTOSTART=0 docker compose up` to drop to a shell instead.
+      - AUTOSTART=${AUTOSTART:-1}
+    ipc: host
+    group_add:
+      - dialout  # Add dialout group for serial port access
+    restart: unless-stopped
+
+#If image doesnt exist build, otherwise use already existing one
+  foxglove-bridge:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile
+    container_name: foxglove_bridge
+    network_mode: host
+    ipc: host
+    command: bash -c "source /ros2_ws/install/setup.bash && ros2 launch foxglove_bridge foxglove_bridge_launch.xml"
+    environment:
+      - ROS_DOMAIN_ID=${ROS_DOMAIN_ID:-42}
+    healthcheck:
+      test: ["CMD", "/usr/local/bin/functionality_check.sh"]
+      interval: 20s
+      timeout: 5s
+      retries: 3
+      start_period: 90s
+    restart: unless-stopped

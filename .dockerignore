@@ -1,0 +1,7 @@
+VSCaptureCLIv1.006Binary/*.csv
+VSCaptureCLIv1.006Binary/*.raw
+VSCaptureCLIv1.006Binary/*.json
+
+export/
+
+.git/
