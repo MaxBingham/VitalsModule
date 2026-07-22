@@ -32,5 +32,17 @@ echo "Setting up ROS environment..."
 source /opt/ros/${ROS_DISTRO}/setup.bash
 source /ros2_ws/install/setup.bash
 
-echo "Container setup complete. Starting bash shell..."
-exec /bin/bash
+# Auto-start the headless vital recorder as PID 1 so that SIGTERM from
+# `docker compose down` reaches ui_vital's shutdown handler and the rosbag
+# is finalised cleanly. Set AUTOSTART=0 to drop to a shell for debugging.
+#
+# NOTE: we exec the installed console-script directly rather than
+# `ros2 run vital_recording ui_vital` on purpose -- `ros2 run` would stay
+# PID 1 and launch the node as a child, so SIGTERM would never reach it.
+if [ "${AUTOSTART:-1}" = "1" ]; then
+    echo "Container setup complete. Auto-starting ui_vital..."
+    exec /ros2_ws/install/vital_recording/lib/vital_recording/ui_vital
+else
+    echo "Container setup complete. Starting bash shell (AUTOSTART=0)..."
+    exec /bin/bash
+fi
