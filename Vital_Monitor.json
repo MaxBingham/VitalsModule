@@ -1,79 +1,77 @@
 {
   "configById": {
-    "Plot!41hwtvp": {
+    "Plot!wcsy2a": {
       "paths": [
         {
           "timestampMethod": "receiveTime",
           "value": "/waveform_ecg1.data",
           "enabled": true,
           "color": "#4e98e2",
-          "id": "864e1763-caf8-4f01-aab2-98d19be26709"
+          "id": "9da81d44-5918-478e-95c6-db799556b72d"
         }
       ],
-      "timeWindowMode": "sliding",
-      "followingViewWidth": 5
+      "isSynced": true
     },
-    "Plot!3x8nqb": {
+    "Plot!1waa40a": {
       "paths": [
         {
           "timestampMethod": "receiveTime",
           "value": "/waveform_invp1.data",
           "enabled": true,
           "color": "#4e98e2",
-          "id": "203d8f19-0560-43c1-b66e-77b99ac0d8a4"
+          "id": "0cdb5455-b2dd-46a2-a932-1f8f9cc7a85d"
         }
-      ],
-      "timeWindowMode": "sliding",
-      "followingViewWidth": 5
+      ]
     },
-    "Plot!408nnrv": {
+    "Plot!3hv56bp": {
       "paths": [
         {
-          "timestampMethod": "receiveTime",
+          "timestampMethod": "publishTime",
           "value": "/waveform_pleth.data",
           "enabled": true,
           "color": "#4e98e2",
-          "id": "4bd1f0e9-18ce-4c38-8f93-6d9cb1c3977b",
+          "id": "32dbc4b7-e5b8-43cc-8577-8a488f7c09b3",
+          "xValuePath": "/parameter_events.stamp.sec",
           "timestampPath": "",
-          "lineSize": 1.2,
+          "lineSize": 1,
           "showLine": true
         }
       ],
       "xAxisVal": "timestamp",
+      "isSynced": true,
+      "xAxisDisplayMethod": "relative",
+      "timeWindowMode": "automatic",
+      "timeRange": "all",
       "xAxisPath": {
-        "value": ""
+        "value": "/rosout.stamp.nsec"
       },
-      "timeWindowMode": "sliding",
-      "followingViewWidth": 5,
-      "playbackBarPosition": "right"
+      "axisScalesMode": "independent"
     },
-    "Plot!1sy4end": {
+    "Plot!1d89cgv": {
       "paths": [
         {
           "timestampMethod": "receiveTime",
           "value": "/waveform_resp.data",
           "enabled": true,
           "color": "#4e98e2",
-          "id": "8bed9c58-0dca-4af3-832b-f9f7435403c3"
+          "id": "c46ee912-a3f8-4876-ac56-41980738ae9f"
         }
-      ],
-      "timeWindowMode": "sliding",
-      "followingViewWidth": 5
+      ]
     },
-    "RawMessages!18y1yvp": {
+    "RawMessages!33w6row": {
       "defaultExpanded": false,
       "topicPath": "/numeric_ecg_hr.data",
-      "fontSize": 48
+      "fontSize": 60
     },
-    "RawMessages!2c6phho": {
+    "RawMessages!1b4r76n": {
       "defaultExpanded": false,
       "topicPath": "/numeric_nibp.data",
-      "fontSize": 48
+      "fontSize": 60
     },
-    "RawMessages!3uhjt01": {
+    "RawMessages!os6rgs": {
       "defaultExpanded": false,
       "topicPath": "/numeric_spo2.data",
-      "fontSize": 48
+      "fontSize": 60
     }
   },
   "globalVariables": {},
@@ -85,29 +83,29 @@
     "tracks": []
   },
   "layout": {
+    "direction": "row",
     "first": {
       "first": {
-        "first": "Plot!41hwtvp",
-        "second": "Plot!3x8nqb",
+        "first": "Plot!wcsy2a",
+        "second": "Plot!1waa40a",
         "direction": "column"
       },
       "second": {
-        "first": "Plot!408nnrv",
-        "second": "Plot!1sy4end",
+        "first": "Plot!3hv56bp",
+        "second": "Plot!1d89cgv",
         "direction": "column"
       },
       "direction": "column"
     },
     "second": {
       "first": {
-        "first": "RawMessages!18y1yvp",
-        "second": "RawMessages!2c6phho",
+        "first": "RawMessages!33w6row",
+        "second": "RawMessages!1b4r76n",
         "direction": "column"
       },
-      "second": "RawMessages!3uhjt01",
+      "second": "RawMessages!os6rgs",
       "direction": "column"
     },
-    "direction": "row",
-    "splitPercentage": 73.30462863293864
+    "splitPercentage": 77.82561894510226
   }
 }
