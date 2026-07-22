@@ -15,19 +15,34 @@ git clone https://gitlab.lrz.de/centre-of-clinical-robotics/templates/vital-para
 cd vital-paramter-recording
 ```
 
-2. **Run the container:**
+2. **Run everything with one command:**
 Navigate to the `docker` directory and run the start script:
 ```bash
 cd docker
 chmod +x run.sh
 ./run.sh
 ```
-This will build the Docker image and start the container. The GUI for the GSR recorder should appear.
-Keep this terminal and open a new one to enter the container:
-```shell
+This single command does everything:
+- builds the image and starts **both** containers (`vital-param-recorder` and `foxglove-bridge`),
+- the recorder container **auto-starts `ui_vital`**, which in turn starts VSCapture, live monitoring, and rosbag recording (no manual node launch needed),
+- waits for the Foxglove bridge, then **opens Foxglove Studio auto-connected** to `ws://localhost:8765`,
+- streams the container logs to the terminal.
+
+Press `Ctrl-C` to detach from the logs — the containers keep running. To stop the whole system:
+```bash
+docker compose -f docker-compose.yml down
+```
+
+> **First run on the Pi 5:** the initial build (rosdep + colcon) takes several minutes and is mostly silent — this is expected, not a hang.
+
+### Manual / debugging
+
+If you need a shell instead of the auto-started node, start with autostart disabled and attach:
+```bash
+AUTOSTART=0 docker compose -f docker-compose.yml up --build -d
 docker exec -it vital-param-recorder bash
 ```
-Then you have entered the container environment with root path:`root@USER:/ros2_ws# ` You can now get access to all about ROS2 Humble now.
+Inside the container you have the full ROS 2 Humble environment (`root@USER:/ros2_ws#`) and can run nodes by hand, e.g. `ros2 run vital_recording ui_vital`. `docker exec ... bash` works even while the node is auto-running.
 
 ## 3. Launching Sensor Nodes
 
@@ -35,6 +50,8 @@ You can get an overview of the nodes and topics in the workspace `ros2_ws` from 
 ![Rosgraph of the whole system](docs/rosgraph_vital.png)
 
 ### Running the entire System
+`./run.sh` (section 2) already launches the full system automatically. The commands below are only needed if you are running things by hand (see **Manual / debugging** above).
+
 Run the home console to get access to the vital recording and rosbag recording.
 ```shell
 ros2 run user_interface ui_home
@@ -73,12 +90,17 @@ sudo docker compose up -d foxglove-bridge
 
 ### 4.2 Connecting Foxglove Studio
 
+`./run.sh` opens Foxglove Studio for you, auto-connected to `ws://localhost:8765` (desktop app via `foxglove://` deep-link if installed, otherwise the hosted web app in your browser). No manual connection step is needed.
+
+If you ever need to connect by hand:
 1. Open Foxglove Studio
 2. Click **Open connection**
 3. Select **Foxglove WebSocket**
 4. Enter URL: `ws://localhost:8765`
 
-> **Note:** Topics only appear after `ui_vital` is running inside the container **and** the **Start Recording** button has been pressed in the GUI.
+> **Layout:** the auto-connect does not load a layout. Import `Vital_Monitor.json` (repo root) once via **Layouts → Import** to get the pre-built vital-monitor dashboard.
+
+> **Note:** Topics appear once `ui_vital` is running (which `./run.sh` starts automatically). Since the node auto-starts recording on launch, no button press is required.
 
 ### 4.3 Available topics
 
@@ -241,13 +263,13 @@ export function activate(ctx: any) {
 
 ## 5. Starting the vital recorder
 
-Always start `ui_vital` with `ROS_DOMAIN_ID=42` set explicitly. Without it the node runs on domain 0 and is invisible to the Foxglove bridge (domain 42):
+`./run.sh` (section 2) starts `ui_vital` automatically inside the container with `ROS_DOMAIN_ID=42` already set (via `docker-compose.yml`), so it is visible to the Foxglove bridge (domain 42). No manual start is needed.
+
+If you disabled autostart (`AUTOSTART=0`) and want to start the node by hand, keep the domain explicit:
 
 ```bash
 sudo docker exec -it vital-param-recorder bash -c "export ROS_DOMAIN_ID=42 && ros2 run vital_recording ui_vital"
 ```
-
-> **Note:** This will be fixed permanently after rebuilding the image with `docker compose up --build`.
 
 ---
 
