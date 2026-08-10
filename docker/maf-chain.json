@@ -1,83 +1,67 @@
 {
-  "demands": [
+  "mafs": [
     {
-      "id": "demand_vitals_monitoring",
-      "end2end_latency": 250.0,
-      "necessary_mafs_ordered": [
-        {
-          "name": "vital-param-recorder",
-          "maf_type": "REGISTRY/vitals-module:latest",
-          "latency_levels": [0.12, 0.10, 0.08, 0.06, 0.04],
-          "throughput_levels": [1.0, 1.5, 2.0, 3.0, 4.0],
-          "cpu_cost": 2.0,
-          "gpu_cost": 0.0,
-          "mem_base": 0.5,
-          "mem_step": 0.1,
-          "stor_cost": 1.0,
-          "data_size": 5.0,
-          "Executability": 1,
-          "Seclvl": 1,
-          "Availability": 0.99,
-          "priority_level": 3,
-          "terminability": 0,
-          "container_options": {
-            "ports": [],
-            "env": [
-              { "var": "DISPLAY", "val": "${DISPLAY}" },
-              { "var": "QT_X11_NO_MITSHM", "val": "1" },
-              { "var": "ROS_DOMAIN_ID", "val": "${ROS_DOMAIN_ID:-42}" },
-              { "var": "UID", "val": "${UID:-1000}" },
-              { "var": "GID", "val": "${GID:-1000}" }
-            ],
-            "volumes": [
-              { "volume": "../ros2_ws/src", "bind": "/ros2_ws/src", "mode": "rw" },
-              { "volume": "../export", "bind": "/export", "mode": "rw" },
-              { "volume": "/tmp/.X11-unix", "bind": "/tmp/.X11-unix", "mode": "rw" },
-              { "volume": "/tmp/.docker.xauth", "bind": "/tmp/.docker.xauth", "mode": "rw" },
-              { "volume": "../VSCaptureCLIv1.006Binary", "bind": "/opt/vscapture/VSCaptureCLIv1.006Binary", "mode": "rw" }
-            ],
-            "ulimits": [],
-            "command": "",
-            "working_dir": "/ros2_ws",
-            "privileged": true,
-            "devices": [
-              "/dev/snd:/dev/snd",
-              "/dev/ttyUSB0:/dev/ttyUSB0:rw"
-            ]
-          },
-          "pin": ""
+      "name": "vital_param_recorder",
+      "maf_type": "vitals-module:latest",
+      "terminability": 0,
+      "priority_level": 3,
+      "latency_levels": [0.12, 0.10, 0.08, 0.06, 0.04],
+      "throughput_levels": [1.0, 1.5, 2.0, 3.0, 4.0],
+      "security_requirements": [],
+      "container_options": {
+        "ports": [],
+        "environment_variables": {
+          "ROS_DOMAIN_ID": "42",
+          "AUTOSTART": "1",
+          "UID": "1000",
+          "GID": "1000"
         },
-        {
-          "name": "foxglove-bridge",
-          "maf_type": "REGISTRY/vitals-module:latest",
-          "latency_levels": [0.05, 0.05, 0.05, 0.05, 0.05],
-          "throughput_levels": [1.0, 1.0, 1.0, 1.0, 1.0],
-          "cpu_cost": 1.0,
-          "gpu_cost": 0.0,
-          "mem_base": 0.2,
-          "mem_step": 0.0,
-          "stor_cost": 0.2,
-          "data_size": 2.0,
-          "Executability": 1,
-          "Seclvl": 1,
-          "Availability": 0.99,
-          "priority_level": 2,
-          "terminability": 1,
-          "container_options": {
-            "ports": ["8765:8765"],
-            "env": [
-              { "var": "ROS_DOMAIN_ID", "val": "${ROS_DOMAIN_ID:-42}" }
-            ],
-            "volumes": [],
-            "ulimits": [],
-            "command": "/entrypoint.sh bash -c \"source /ros2_ws/install/setup.bash && ros2 launch foxglove_bridge foxglove_bridge_launch.xml\"",
-            "working_dir": "/ros2_ws",
-            "privileged": false,
-            "devices": []
-          },
-          "pin": ""
-        }
-      ]
+        "command": "",
+        "volumes": {},
+        "runtime": "",
+        "ulimits": [],
+        "cap_add": [],
+        "cap_drop": [],
+        "ipc": "host",
+        "working_dir": "/ros2_ws",
+        "privileged": true,
+        "devices": [
+          "/dev/snd:/dev/snd",
+          "/dev/ttyUSB0:/dev/ttyUSB0:rw"
+        ]
+      },
+      "depends_on": [],
+      "pin": ""
+    },
+    {
+      "name": "foxglove_bridge",
+      "maf_type": "vitals-module:latest",
+      "terminability": 1,
+      "priority_level": 2,
+      "latency_levels": [0.05, 0.05, 0.05, 0.05, 0.05],
+      "throughput_levels": [1.0, 1.0, 1.0, 1.0, 1.0],
+      "security_requirements": [],
+      "container_options": {
+        "ports": [
+          { "from": 8765, "to": 8765, "protocol": "tcp" }
+        ],
+        "environment_variables": {
+          "ROS_DOMAIN_ID": "42"
+        },
+        "command": "bash -c \"source /opt/ros/humble/setup.bash && source /ros2_ws/install/setup.bash && ros2 launch foxglove_bridge foxglove_bridge_launch.xml\"",
+        "volumes": {},
+        "runtime": "",
+        "ulimits": [],
+        "cap_add": [],
+        "cap_drop": [],
+        "ipc": "host",
+        "working_dir": "/ros2_ws",
+        "privileged": false,
+        "devices": []
+      },
+      "depends_on": [],
+      "pin": ""
     }
-  ]
+  ],
+  "end2endLatency": 250
 }
