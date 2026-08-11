@@ -8,6 +8,8 @@ records everything to a rosbag, and streams the data to
 
 Everything runs in Docker and starts with a single command.
 
+> **Hardware BOM:** the bill of materials (with part photos) is in [`docs/BOM.xlsx`](docs/BOM.xlsx).
+
 ## Quick start
 
 1. **Clone the repository:**
